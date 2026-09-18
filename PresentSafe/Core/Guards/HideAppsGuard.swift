@@ -27,6 +27,11 @@ final class HideAppsGuard: PresentGuard {
     private var activationObserver: (any NSObjectProtocol)?
     private var unhideObserver: (any NSObjectProtocol)?
     private var sweepTask: Task<Void, Never>?
+
+    /// The last app the user was actually working in. Refusing a launch means
+    /// giving this focus straight back, which is the difference between "the
+    /// app never opened" and "something flashed past and stole my keyboard".
+    private var lastSafeFrontmost: NSRunningApplication?
     private let logger = Logger(subsystem: "dev.justghali.PresentSafe", category: "HideApps")
 
     init(preferences: Preferences) {
@@ -46,6 +51,12 @@ final class HideAppsGuard: PresentGuard {
 
         for app in hiddenByUs {
             app.hide()
+        }
+
+        // Seed it now, or a launch refused before the user has switched apps
+        // has nothing to hand focus back to.
+        if let frontmost = NSWorkspace.shared.frontmostApplication, !isSensitive(frontmost) {
+            lastSafeFrontmost = frontmost
         }
 
         // A sensitive app launched mid-presentation — Slack reopening, Mail
@@ -135,6 +146,12 @@ final class HideAppsGuard: PresentGuard {
         }
     }
 
+    /// Returns the user to whatever they were doing.
+    private func restoreFocus() {
+        guard let previous = lastSafeFrontmost, !previous.isTerminated else { return }
+        previous.activate()
+    }
+
     nonisolated private static func processIdentifier(from notification: Notification) -> pid_t? {
         (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
             .processIdentifier
@@ -173,6 +190,10 @@ final class HideAppsGuard: PresentGuard {
 
         // An app still marked hidden is mid-unhide; `didUnhide` follows and
         // handles it. Acting on both would cover it twice.
+        if !isSensitive(app) {
+            lastSafeFrontmost = app
+        }
+
         if isSensitive(app), !app.isHidden {
             block(app, trigger: "activate")
             return
@@ -254,11 +275,16 @@ final class HideAppsGuard: PresentGuard {
             return
         }
 
-        // Hide first, quit second. Measured: terminate() alone takes over a
-        // second to land, which is ample time for the window to appear and be
-        // read by everyone watching. Hiding suppresses the window while the
-        // quit request works its way through.
+        // Order matters, and all three parts are doing work.
+        //
+        // Hide first: measured, terminate() alone takes over a second to land,
+        // and the window arrives at about 1.2s — far too close for comfort.
+        //
+        // Then hand focus straight back. This is what removes the jolt: even
+        // with no window ever drawn, the launch takes the menu bar and the
+        // keyboard away, and that alone reads as the app having opened.
         app.hide()
+        restoreFocus()
         let reported = app.terminate()
         logger.notice("Refusing launch of \(bundleID, privacy: .public); terminate() reported \(reported)")
 
@@ -279,12 +305,18 @@ final class HideAppsGuard: PresentGuard {
                 guard let self, !app.isTerminated else { return }
                 // Snoozing mid-flight means the user asked for it after all.
                 guard self.isSensitive(app) else { return }
+
                 if !app.isHidden { app.hide() }
+                if NSWorkspace.shared.frontmostApplication == app { self.restoreFocus() }
             }
 
+            // Still alive well after a polite request. Measured, forceTerminate
+            // lands in under 100ms — but it is a last resort rather than the
+            // opening move, because it gives the app no chance to finish
+            // whatever it was writing when it started up.
             guard let self, !app.isTerminated, self.isSensitive(app) else { return }
-            let retried = app.terminate()
-            self.logger.notice("Retried refusing \(bundleID, privacy: .public); terminate() reported \(retried)")
+            let forced = app.forceTerminate()
+            self.logger.notice("Forced \(bundleID, privacy: .public) after it ignored the quit; reported \(forced)")
         }
     }
 
