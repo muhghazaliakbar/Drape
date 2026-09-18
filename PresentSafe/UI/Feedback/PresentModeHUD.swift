@@ -26,11 +26,16 @@ final class PresentModeHUD {
     enum State {
         case activated(protections: Int)
         case deactivated
+        /// A sensitive app was brought back while Present Mode was on, and put
+        /// away again. Without this the app would simply bounce, which reads as
+        /// a bug rather than a decision.
+        case blocked(appName: String)
 
         var title: String {
             switch self {
             case .activated: String(localized: "Present Mode on")
             case .deactivated: String(localized: "Present Mode off")
+            case .blocked(let appName): String(localized: "\(appName) stays hidden")
             }
         }
 
@@ -42,6 +47,8 @@ final class PresentModeHUD {
                     : String(localized: "\(count) protections active")
             case .deactivated:
                 String(localized: "Everything restored")
+            case .blocked:
+                String(localized: "Turn off Present Mode to use it")
             }
         }
 
@@ -49,6 +56,7 @@ final class PresentModeHUD {
             switch self {
             case .activated: "checkmark.circle.fill"
             case .deactivated: "eye.circle.fill"
+            case .blocked: "hand.raised.fill"
             }
         }
 
@@ -59,6 +67,7 @@ final class PresentModeHUD {
             switch self {
             case .activated: .green
             case .deactivated: .orange
+            case .blocked: .blue
             }
         }
     }
@@ -90,7 +99,11 @@ final class PresentModeHUD {
         let phase = Phase()
         self.phase = phase
 
-        windows = NSScreen.screens.map { makeGlowWindow(on: $0, tint: state.tint, phase: phase) }
+        // A blocked app gets the card only. Flashing the whole screen every
+        // time someone Cmd-Tabs would be its own kind of noise.
+        if case .blocked = state {} else {
+            windows = NSScreen.screens.map { makeGlowWindow(on: $0, tint: state.tint, phase: phase) }
+        }
         windows.append(makeToastWindow(for: state, phase: phase))
 
         for window in windows {

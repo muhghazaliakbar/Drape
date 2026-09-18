@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Hides the apps the user marked as sensitive — password managers, chat
 /// clients, mail, whatever leaks when a screen goes up on a projector.
@@ -22,6 +23,7 @@ final class HideAppsGuard: PresentGuard {
     /// the user deliberately put away.
     private var hiddenByUs: [NSRunningApplication] = []
     private var launchObserver: (any NSObjectProtocol)?
+    private var activationObserver: (any NSObjectProtocol)?
 
     init(preferences: Preferences) {
         self.preferences = preferences
@@ -54,26 +56,71 @@ final class HideAppsGuard: PresentGuard {
             // nothing from the notification can cross into the isolated closure.
             // The pid can: it is an Int32, and re-resolving it on the main actor
             // gives back an equivalent object.
-            let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
-                .processIdentifier
+            let pid = Self.processIdentifier(from: notification)
 
             MainActor.assumeIsolated { [weak self] in
                 guard let pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
                 self?.hideIfSensitive(app)
             }
         }
+
+        // Hiding once is not the same as staying hidden. Without this, a stray
+        // Cmd-Tab mid-presentation puts the user's DMs back on the shared
+        // screen — which is the likeliest way this app fails in practice, and
+        // it fails silently.
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            let pid = Self.processIdentifier(from: notification)
+
+            MainActor.assumeIsolated { [weak self] in
+                guard let pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
+                self?.putBackIfSensitive(app)
+            }
+        }
+    }
+
+    nonisolated private static func processIdentifier(from notification: Notification) -> pid_t? {
+        (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
+            .processIdentifier
     }
 
     func deactivate() async {
-        if let launchObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(launchObserver)
-            self.launchObserver = nil
+        for observer in [launchObserver, activationObserver].compactMap(\.self) {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
+        launchObserver = nil
+        activationObserver = nil
 
         for app in hiddenByUs where !app.isTerminated {
             app.unhide()
         }
         hiddenByUs = []
+    }
+
+    /// Puts a sensitive app back after the user brought it forward.
+    ///
+    /// An app that simply bounces reads as a bug, so this always explains
+    /// itself. The user is not locked out: the shortcut is one press away, and
+    /// the card says so.
+    private func putBackIfSensitive(_ app: NSRunningApplication) {
+        guard preferences.keepsSensitiveAppsHidden,
+              let bundleID = app.bundleIdentifier,
+              preferences.sensitiveBundleIDs.contains(bundleID),
+              !app.isHidden,
+              app.hide()
+        else { return }
+
+        if !hiddenByUs.contains(app) {
+            hiddenByUs.append(app)
+        }
+        PresentModeHUD.shared.show(.blocked(appName: app.localizedName ?? bundleID))
+    }
+
+    var configuration: AnyView? {
+        AnyView(HideAppsConfiguration(preferences: preferences))
     }
 
     private func hideIfSensitive(_ app: NSRunningApplication) {
@@ -95,5 +142,22 @@ final class HideAppsGuard: PresentGuard {
                 hiddenByUs.append(app)
             }
         }
+    }
+}
+
+private struct HideAppsConfiguration: View {
+    @ObservedObject var preferences: Preferences
+
+    var body: some View {
+        Toggle(isOn: $preferences.keepsSensitiveAppsHidden) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Keep them hidden")
+                Text("Puts an app back if you open it while Present Mode is on.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .toggleStyle(.switch)
     }
 }

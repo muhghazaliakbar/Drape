@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ stays hidden": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tetap tersembunyi"
+          }
+        }
+      }
+    },
     "%lld apps will be hidden when Present Mode is on.": {
       "localizations": {
         "id": {
@@ -234,6 +244,16 @@
         }
       }
     },
+    "Keep them hidden": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pertahankan tersembunyi"
+          }
+        }
+      }
+    },
     "Licence": {
       "localizations": {
         "id": {
@@ -380,6 +400,16 @@
         }
       }
     },
+    "Puts an app back if you open it while Present Mode is on.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengembalikan aplikasi jika Anda membukanya saat Present Mode aktif."
+          }
+        }
+      }
+    },
     "Quit PresentSafe": {
       "localizations": {
         "id": {
@@ -506,6 +536,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nyalakan Present Mode"
+          }
+        }
+      }
+    },
+    "Turn off Present Mode to use it": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matikan Present Mode untuk memakainya"
           }
         }
       }

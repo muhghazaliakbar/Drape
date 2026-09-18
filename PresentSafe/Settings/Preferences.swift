@@ -31,6 +31,7 @@ final class Preferences: ObservableObject {
                     """)
         }
         self.hotKeyCombo = Self.loadCombo(from: defaults) ?? .default
+        self.keepsSensitiveAppsHidden = defaults.object(forKey: Keys.keepsSensitiveAppsHidden) as? Bool ?? true
         self.showsOnScreenConfirmation = defaults.object(forKey: Keys.showsOnScreenConfirmation) as? Bool ?? true
         self.focusShortcutOnPresent = defaults.string(forKey: Keys.focusShortcutOnPresent)
         self.focusShortcutOnRelease = defaults.string(forKey: Keys.focusShortcutOnRelease)
@@ -46,6 +47,10 @@ final class Preferences: ObservableObject {
 
     @Published var focusShortcutOnRelease: String? {
         didSet { defaults.set(focusShortcutOnRelease, forKey: Keys.focusShortcutOnRelease) }
+    }
+
+    @Published var keepsSensitiveAppsHidden: Bool {
+        didSet { defaults.set(keepsSensitiveAppsHidden, forKey: Keys.keepsSensitiveAppsHidden) }
     }
 
     @Published var showsOnScreenConfirmation: Bool {
@@ -153,6 +158,7 @@ final class Preferences: ObservableObject {
     private enum Keys {
         static let sensitiveBundleIDs = "sensitiveBundleIDs"
         static let hotKeyCombo = "hotKeyCombo"
+        static let keepsSensitiveAppsHidden = "keepsSensitiveAppsHidden"
         static let showsOnScreenConfirmation = "showsOnScreenConfirmation"
         static let focusShortcutOnPresent = "focusShortcutOnPresent"
         static let focusShortcutOnRelease = "focusShortcutOnRelease"
