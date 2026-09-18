@@ -15,8 +15,8 @@ import SwiftUI
 @MainActor
 final class FocusGuard: PresentGuard {
     let id = "focus"
-    let title = "Turn on a Focus"
-    let summary = "Runs a Shortcut, the only supported way to silence notifications."
+    let title = String(localized: "Turn on a Focus")
+    let summary = String(localized: "Runs a Shortcut, the only supported way to silence notifications.")
     let symbolName = "moon.fill"
     let isEnabledByDefault = false
 
@@ -29,12 +29,12 @@ final class FocusGuard: PresentGuard {
 
     func activate() async throws {
         guard let name = preferences.focusShortcutOnPresent, !name.isEmpty else {
-            throw GuardError.notConfigured("Choose a Shortcut in Settings.")
+            throw GuardError.notConfigured(String(localized: "Choose a Shortcut in Settings."))
         }
 
         let result = try await Command.run("/usr/bin/shortcuts", ["run", name])
         guard result.succeeded else {
-            throw GuardError.systemRefused("the Shortcut “\(name)” did not run")
+            throw GuardError.systemRefused(String(localized: "the Shortcut “\(name)” did not run"))
         }
         didRun = true
     }

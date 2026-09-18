@@ -22,8 +22,8 @@ import SwiftUI
 @MainActor
 final class NotificationZoneGuard: PresentGuard {
     let id = "notificationZone"
-    let title = "Cover the notification corner"
-    let summary = "Hides banners as they appear, on every display."
+    let title = String(localized: "Cover the notification corner")
+    let summary = String(localized: "Hides banners as they appear, on every display.")
     let symbolName = "bell.slash"
     let isEnabledByDefault = true
 

@@ -10,8 +10,8 @@ import AppKit
 @MainActor
 final class HideAppsGuard: PresentGuard {
     let id = "hideApps"
-    let title = "Hide sensitive apps"
-    let summary = "Hides the apps you choose, and brings them back afterwards."
+    let title = String(localized: "Hide sensitive apps")
+    let summary = String(localized: "Hides the apps you choose, and brings them back afterwards.")
     let symbolName = "eye.slash"
     let isEnabledByDefault = true
 
@@ -30,7 +30,7 @@ final class HideAppsGuard: PresentGuard {
     func activate() async throws {
         let targets = preferences.sensitiveBundleIDs
         guard !targets.isEmpty else {
-            throw GuardError.notConfigured("Pick at least one app in Settings.")
+            throw GuardError.notConfigured(String(localized: "Pick at least one app in Settings."))
         }
 
         hiddenByUs = NSWorkspace.shared.runningApplications.filter { app in

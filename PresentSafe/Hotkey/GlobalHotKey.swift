@@ -22,9 +22,9 @@ final class GlobalHotKey {
         var errorDescription: String? {
             switch self {
             case .duplicateRegistration:
-                "This shortcut is already registered. Try a different one."
+                String(localized: "This shortcut is already registered. Try a different one.")
             case .failed(let status):
-                "macOS refused to register this shortcut (error \(status))."
+                String(localized: "macOS refused to register this shortcut (error \(status)).")
             }
         }
     }

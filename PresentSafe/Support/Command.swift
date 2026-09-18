@@ -24,7 +24,7 @@ enum Command {
             do {
                 try process.run()
             } catch {
-                throw GuardError.systemRefused("could not run \(launchPath)")
+                throw GuardError.systemRefused(String(localized: "could not run \(launchPath)"))
             }
 
             // Drain before waiting: a tool that fills the pipe buffer would

@@ -16,9 +16,9 @@ enum SettingsPane: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .protections: "Protections"
-        case .apps: "Apps"
-        case .about: "About"
+        case .protections: String(localized: "Protections")
+        case .apps: String(localized: "Apps")
+        case .about: String(localized: "About")
         }
     }
 

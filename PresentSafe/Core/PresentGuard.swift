@@ -71,7 +71,7 @@ enum GuardError: LocalizedError {
         // guard's name, and "Hide sensitive apps: Not configured yet: pick an
         // app" says the same thing three times.
         case .notConfigured(let detail): detail
-        case .systemRefused(let detail): "macOS refused the request: \(detail)"
+        case .systemRefused(let detail): String(localized: "macOS refused the request: \(detail)")
         }
     }
 }

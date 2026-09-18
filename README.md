@@ -131,6 +131,24 @@ reach for *seconds* before you present, that trade is worth it.
 - [ ] An app icon (About currently draws a stand-in mark)
 - [ ] Signed, notarised release builds + Homebrew cask
 
+## Languages
+
+PresentSafe follows the language macOS is set to, and falls back to English. It ships in
+English and Indonesian today.
+
+You can also set it per app, without changing your whole system: System Settings →
+General → Language & Region → Applications.
+
+Adding a language is a translation job, not a coding one. Open
+`PresentSafe/Localizable.xcstrings` in Xcode, pick your language from the `+` button, and
+fill in the column. Nothing in the code needs to change.
+
+One rule if you *do* touch the code: a string only reaches the catalog when its literal
+sits at the call site. Assigning it to a `String` variable first makes it invisible to the
+extractor, which is a silent failure — the app compiles, runs, and is simply never
+translated. `xcodebuild -exportLocalizations` is the way to check what actually got picked
+up.
+
 ## Contributing
 
 New protections are the most useful contribution: conform to `PresentGuard`, add it to

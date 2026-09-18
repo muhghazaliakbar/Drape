@@ -29,17 +29,19 @@ final class PresentModeHUD {
 
         var title: String {
             switch self {
-            case .activated: "Present Mode on"
-            case .deactivated: "Present Mode off"
+            case .activated: String(localized: "Present Mode on")
+            case .deactivated: String(localized: "Present Mode off")
             }
         }
 
         var subtitle: String {
             switch self {
             case .activated(let count):
-                count == 1 ? "1 protection active" : "\(count) protections active"
+                count == 1
+                    ? String(localized: "1 protection active")
+                    : String(localized: "\(count) protections active")
             case .deactivated:
-                "Everything restored"
+                String(localized: "Everything restored")
             }
         }
 

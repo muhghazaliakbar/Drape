@@ -9,8 +9,8 @@ import AppKit
 @MainActor
 final class DesktopIconsGuard: PresentGuard {
     let id = "desktopIcons"
-    let title = "Clear the desktop"
-    let summary = "Hides desktop icons. Restarts Finder, so windows will flicker."
+    let title = String(localized: "Clear the desktop")
+    let summary = String(localized: "Hides desktop icons. Restarts Finder, so windows will flicker.")
     let symbolName = "macwindow.on.rectangle"
     let isEnabledByDefault = false
 

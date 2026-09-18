@@ -37,7 +37,7 @@ final class SettingsWindowController: NSObject {
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
 
-        logger.info("Settings shown (visible: \(window.isVisible), key: \(window.isKeyWindow), pane: \(self.currentPane.rawValue, privacy: .public))")
+        logger.info("Settings shown (visible: \(window.isVisible), key: \(window.isKeyWindow), pane: \(self.currentPane.rawValue, privacy: .public), title: \(window.title, privacy: .public))")
     }
 
     // MARK: - Window

@@ -55,16 +55,14 @@ struct MenuBarContentView: View {
     // capsule is not something macOS puts in a menu bar panel.
     @ViewBuilder
     private var primaryAction: some View {
-        let title = controller.isActive ? "Turn Off Present Mode" : "Turn On Present Mode"
-
         if controller.isActive {
             Button(action: controller.toggle) {
-                Text(title).frame(maxWidth: .infinity)
+                Text("Turn Off Present Mode").frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
         } else {
             Button(action: controller.toggle) {
-                Text(title).frame(maxWidth: .infinity)
+                Text("Turn On Present Mode").frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -133,12 +131,12 @@ struct MenuBarContentView: View {
 /// which is how every other menu on the system reads. Link-styled blue text was
 /// borrowed from the web and looks foreign here.
 private struct MenuCommand: View {
-    let title: String
+    let title: LocalizedStringKey
     let action: () -> Void
 
     @State private var isHighlighted = false
 
-    init(_ title: String, action: @escaping () -> Void) {
+    init(_ title: LocalizedStringKey, action: @escaping () -> Void) {
         self.title = title
         self.action = action
     }

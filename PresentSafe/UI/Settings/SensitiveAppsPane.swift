@@ -110,9 +110,9 @@ struct SensitiveAppsPane: View {
     /// promise to hide eight apps while showing two ticks.
     private var footerText: String {
         switch selected.count {
-        case 0: "No apps will be hidden yet."
-        case 1: "1 app will be hidden when Present Mode is on."
-        default: "\(selected.count) apps will be hidden when Present Mode is on."
+        case 0: String(localized: "No apps will be hidden yet.")
+        case 1: String(localized: "1 app will be hidden when Present Mode is on.")
+        default: String(localized: "\(selected.count) apps will be hidden when Present Mode is on.")
         }
     }
 
@@ -164,7 +164,7 @@ private struct AppRow: View {
 /// its pane switcher.
 private struct SearchField: View {
     @Binding var text: String
-    let prompt: String
+    let prompt: LocalizedStringKey
 
     var body: some View {
         HStack(spacing: 6) {
