@@ -208,7 +208,7 @@ final class HideAppsGuard: PresentGuard {
         // size. One that has none — just launched, or every window closed —
         // has nothing to cover, so the card carries the message alone.
         let covered = BlockedAppOverlay.shared.cover(app)
-        logger.info("Blocking \(app.bundleIdentifier ?? "?", privacy: .public) on \(trigger, privacy: .public); covered windows: \(covered)")
+        logger.notice("Blocking \(app.bundleIdentifier ?? "?", privacy: .public) on \(trigger, privacy: .public); covered windows: \(covered)")
 
         PresentModeHUD.shared.show(.blocked(appName: name, bundleID: app.bundleIdentifier))
     }
@@ -221,7 +221,7 @@ final class HideAppsGuard: PresentGuard {
         // reports `false` in situations where the hide still lands, so gating
         // on it silently skips the very case this exists for.
         let reported = app.hide()
-        logger.info("Put away \(app.bundleIdentifier ?? "?", privacy: .public); hide() reported \(reported)")
+        logger.notice("Put away \(app.bundleIdentifier ?? "?", privacy: .public); hide() reported \(reported)")
 
         if !hiddenByUs.contains(app) {
             hiddenByUs.append(app)
@@ -246,25 +246,48 @@ final class HideAppsGuard: PresentGuard {
     /// variant — the app is asked to quit and can still save — rather than
     /// `forceTerminate()`.
     private func refuseLaunch(of app: NSRunningApplication) {
-        guard isSensitive(app), let bundleID = app.bundleIdentifier else { return }
+        guard let bundleID = app.bundleIdentifier else { return }
+        guard isSensitive(app) else {
+            // Recorded, because "nothing happened" is the hardest failure to
+            // diagnose from the outside.
+            logger.debug("Ignoring launch of \(bundleID, privacy: .public): not sensitive or snoozed")
+            return
+        }
 
-        let name = app.localizedName ?? bundleID
-        // Like `hide()`, the return value is recorded rather than trusted.
+        // Hide first, quit second. Measured: terminate() alone takes over a
+        // second to land, which is ample time for the window to appear and be
+        // read by everyone watching. Hiding suppresses the window while the
+        // quit request works its way through.
+        app.hide()
         let reported = app.terminate()
-        logger.info("Refused launch of \(bundleID, privacy: .public); terminate() reported \(reported)")
+        logger.notice("Refusing launch of \(bundleID, privacy: .public); terminate() reported \(reported)")
 
-        PresentModeHUD.shared.show(.blocked(appName: name, bundleID: bundleID))
+        PresentModeHUD.shared.show(.blocked(appName: app.localizedName ?? bundleID, bundleID: bundleID))
+        keepDown(app, bundleID: bundleID)
+    }
 
-        // An app still working through its own launch may ignore the first
-        // request. One retry, and then it is left to the sweep, which will
-        // cover it rather than keep hammering a process that will not go.
+    /// Keeps asking until the app is hidden or gone.
+    ///
+    /// `hide()` reports failure while an app is still launching and then takes
+    /// effect a moment later — measured at around 600ms — so a single call is a
+    /// coin toss. An app that draws its window faster than that would otherwise
+    /// be on screen for the whole time the quit request is in flight.
+    private func keepDown(_ app: NSRunningApplication, bundleID: String) {
         Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(700))
+            for _ in 0..<12 {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard let self, !app.isTerminated else { return }
+                // Snoozing mid-flight means the user asked for it after all.
+                guard self.isSensitive(app) else { return }
+                if !app.isHidden { app.hide() }
+            }
+
             guard let self, !app.isTerminated, self.isSensitive(app) else { return }
             let retried = app.terminate()
-            self.logger.info("Retried refusing \(bundleID, privacy: .public); terminate() reported \(retried)")
+            self.logger.notice("Retried refusing \(bundleID, privacy: .public); terminate() reported \(retried)")
         }
     }
+
 }
 
 private struct HideAppsConfiguration: View {
