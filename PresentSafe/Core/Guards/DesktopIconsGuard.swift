@@ -37,23 +37,8 @@ final class DesktopIconsGuard: PresentGuard {
     }
 
     private func setDesktopIconsVisible(_ visible: Bool) async throws {
-        try await run("/usr/bin/defaults", ["write", "com.apple.finder", "CreateDesktop", "-bool", visible ? "true" : "false"])
-        try await run("/usr/bin/killall", ["Finder"])
+        try await Command.run("/usr/bin/defaults", ["write", "com.apple.finder", "CreateDesktop", "-bool", visible ? "true" : "false"])
+        try await Command.run("/usr/bin/killall", ["Finder"])
     }
 
-    @discardableResult
-    private func run(_ launchPath: String, _ arguments: [String]) async throws -> Int32 {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: launchPath)
-        process.arguments = arguments
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-        } catch {
-            throw GuardError.systemRefused("could not run \(launchPath)")
-        }
-        process.waitUntilExit()
-        return process.terminationStatus
-    }
 }

@@ -35,6 +35,7 @@ final class PresentModeController: ObservableObject {
         self.defaults = defaults
         self.guards = [
             HideAppsGuard(preferences: preferences),
+            FocusGuard(preferences: preferences),
             NotificationZoneGuard(),
             DesktopIconsGuard(),
         ]

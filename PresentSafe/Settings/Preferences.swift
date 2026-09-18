@@ -31,10 +31,20 @@ final class Preferences: ObservableObject {
                     """)
         }
         self.hotKeyCombo = Self.loadCombo(from: defaults) ?? .default
+        self.focusShortcutOnPresent = defaults.string(forKey: Keys.focusShortcutOnPresent)
+        self.focusShortcutOnRelease = defaults.string(forKey: Keys.focusShortcutOnRelease)
     }
 
     @Published var sensitiveBundleIDs: Set<String> {
         didSet { defaults.set(Array(sensitiveBundleIDs), forKey: Keys.sensitiveBundleIDs) }
+    }
+
+    @Published var focusShortcutOnPresent: String? {
+        didSet { defaults.set(focusShortcutOnPresent, forKey: Keys.focusShortcutOnPresent) }
+    }
+
+    @Published var focusShortcutOnRelease: String? {
+        didSet { defaults.set(focusShortcutOnRelease, forKey: Keys.focusShortcutOnRelease) }
     }
 
     @Published var hotKeyCombo: KeyCombo {
@@ -138,6 +148,8 @@ final class Preferences: ObservableObject {
     private enum Keys {
         static let sensitiveBundleIDs = "sensitiveBundleIDs"
         static let hotKeyCombo = "hotKeyCombo"
+        static let focusShortcutOnPresent = "focusShortcutOnPresent"
+        static let focusShortcutOnRelease = "focusShortcutOnRelease"
         static func guardEnabled(_ id: String) -> String { "guard.\(id).enabled" }
     }
 }

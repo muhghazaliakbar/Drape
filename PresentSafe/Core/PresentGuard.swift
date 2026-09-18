@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 /// A single, self-contained protective action that runs while Present Mode is active.
 ///
@@ -44,11 +44,20 @@ protocol PresentGuard: AnyObject {
     /// anything outside its own address space must implement this and restore
     /// unconditionally, without reference to what it remembers doing.
     func recoverAfterUncleanShutdown() async
+
+    /// Extra controls shown under this guard's row in Settings.
+    ///
+    /// Most guards need none. Keeping this on the protocol rather than special
+    /// casing in the settings pane is what preserves the rule that adding a
+    /// protection means one new file and one line in the registry.
+    var configuration: AnyView? { get }
 }
 
 extension PresentGuard {
     /// Guards whose effects die with the process need no recovery.
     func recoverAfterUncleanShutdown() async {}
+
+    var configuration: AnyView? { nil }
 }
 
 /// Errors a guard can surface to the user without taking down all of Present Mode.

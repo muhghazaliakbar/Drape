@@ -10,6 +10,12 @@ struct ProtectionsPane: View {
             Section {
                 ForEach(controller.guards, id: \.id) { activeGuard in
                     GuardRow(activeGuard: activeGuard)
+
+                    // Only while the guard is on: configuration for something
+                    // switched off is noise.
+                    if preferences.isEnabled(activeGuard), let configuration = activeGuard.configuration {
+                        configuration
+                    }
                 }
             } header: {
                 Text("When Present Mode is on")
