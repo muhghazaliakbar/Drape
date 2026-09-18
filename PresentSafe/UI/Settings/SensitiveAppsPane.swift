@@ -136,14 +136,22 @@ private struct AppRow: View {
 
     var body: some View {
         Toggle(isOn: $isOn) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
+                // App icons are the fastest thing to recognise in a list this
+                // long — far quicker than reading names — so they are worth the
+                // row height. 28pt also hits a real icon representation rather
+                // than forcing macOS to downscale.
                 Image(nsImage: app.icon)
                     .resizable()
-                    .frame(width: 18, height: 18)
+                    .interpolation(.high)
+                    .frame(width: 28, height: 28)
+
                 Text(app.name)
+                    .font(.system(size: 14))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
+            .padding(.vertical, 3)
         }
         .toggleStyle(.checkbox)
     }
