@@ -231,12 +231,15 @@ final class NotificationZoneGuard: PresentGuard {
         window.contentView = NSHostingView(
             rootView: NotificationCoverView(phase: phase, insets: insets)
         )
-        // Clear and non-opaque so the panel's own rounded corners survive; the
-        // panel itself is fully opaque, because a blurred material would leave
-        // a banner's shape and colour readable through it.
+        // Clear and non-opaque so the panel's own rounded corners survive.
         window.backgroundColor = .clear
         window.isOpaque = false
-        window.hasShadow = true
+        // The window must not draw a shadow of its own. Around a non-opaque
+        // window hosting a `.behindWindow` effect view, macOS traces one along
+        // the effect view's bounds — which showed up as a dark outline and a
+        // pale halo sitting outside the panel, on top of the shadow SwiftUI
+        // already draws.
+        window.hasShadow = false
         window.alphaValue = 0
         // Purely visual: clicks pass straight through, so the cover can never
         // strand the user behind a rectangle they cannot dismiss.
@@ -280,7 +283,7 @@ private struct NotificationCoverView: View {
     }
 
     private var panel: some View {
-        BackdropView(material: Self.material)
+        BackdropView(material: Self.material, cornerRadius: Self.cornerRadius)
             .clipShape(shape)
             .overlay { tint }
             .overlay { rim }
@@ -326,6 +329,7 @@ private struct NotificationCoverView: View {
 /// to the screen underneath, which is the whole effect.
 private struct BackdropView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
+    let cornerRadius: CGFloat
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -343,5 +347,14 @@ private struct BackdropView: NSViewRepresentable {
         // Without `.active` the blur stops whenever the app is not frontmost —
         // which, for a menu bar utility, is always.
         view.state = .active
+
+        // Rounded on the layer as well as by SwiftUI's `clipShape`. The clip
+        // shapes what SwiftUI composites — including the shadow — while this
+        // shapes the AppKit view itself, which is what the window server reads
+        // when it decides where the surface ends.
+        view.wantsLayer = true
+        view.layer?.cornerRadius = cornerRadius
+        view.layer?.cornerCurve = .continuous
+        view.layer?.masksToBounds = true
     }
 }
