@@ -18,7 +18,6 @@ when you're done.
 | Protection | What happens |
 |---|---|
 | **Hide sensitive apps** | Apps you pick (1Password, Slack, Mail…) are hidden, then brought back afterwards. |
-| **Turn on a Focus** | Runs a Shortcut of yours that sets a Focus, so notifications never arrive. *Off by default — needs two Shortcuts.* |
 | **Cover the notification corner** | Watches for banners and covers the corner only while one is up, on every display. |
 | **Clear the desktop** | Desktop icons disappear for the duration. *Off by default — it restarts Finder.* |
 
@@ -43,8 +42,9 @@ than no tool at all:
 - **It cannot silence notifications by itself.** There is no supported API: `INFocusStatus`
   is read-only, `INFocusStatusCenter` governs only permission to *read* your Focus, and the
   Do Not Disturb database is SIP-protected — all three checked against the macOS 27 SDK.
-  Running a Shortcut is the only sanctioned route, which is why that protection asks you to
-  make one.
+  Running a Shortcut is the only sanctioned route. That is written and works, but is not
+  shipped yet — it is useless until you have built two Shortcuts by hand, and a protection
+  that sets homework before it does anything is a poor first impression.
 - **Covering the notification corner is best-effort.** macOS publishes a full-screen host
   window for Notification Center, never the banner's own frame, so PresentSafe can tell
   *that* a banner is up but not exactly where. The covered region is a well-placed estimate.
@@ -125,7 +125,7 @@ reach for *seconds* before you present, that trade is worth it.
 ## Roadmap
 
 - [x] Configurable shortcut
-- [x] Focus integration via Shortcuts
+- [ ] Focus integration via Shortcuts (written, not yet enabled)
 - [ ] Best-effort detection of Zoom / Meet / Teams sharing, as a reminder
 - [ ] Per-display curtains, and user-drawn cover regions
 - [ ] An app icon (About currently draws a stand-in mark)

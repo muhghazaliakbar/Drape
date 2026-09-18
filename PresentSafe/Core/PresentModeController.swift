@@ -35,8 +35,12 @@ final class PresentModeController: ObservableObject {
         self.defaults = defaults
         self.guards = [
             HideAppsGuard(preferences: preferences),
-            FocusGuard(preferences: preferences),
             NotificationZoneGuard(),
+            // FocusGuard(preferences: preferences),
+            //   Written and working, but not shipped yet: it is useless until
+            //   the user has built two Shortcuts by hand, and a protection that
+            //   asks for homework before it does anything is a poor first
+            //   impression. Uncomment to bring it back.
             DesktopIconsGuard(),
         ]
     }
