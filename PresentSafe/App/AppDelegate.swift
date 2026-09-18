@@ -3,6 +3,9 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { @MainActor in
+            await PresentModeController.shared.recoverFromPreviousRun()
+        }
         HotKeyCenter.shared.start()
     }
 

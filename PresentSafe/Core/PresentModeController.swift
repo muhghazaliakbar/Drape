@@ -19,13 +19,20 @@ final class PresentModeController: ObservableObject {
     let guards: [any PresentGuard]
 
     private let preferences: Preferences
+    private let defaults: UserDefaults
     private let logger = Logger(subsystem: "dev.justghali.PresentSafe", category: "PresentMode")
+
+    /// Guard ids written to disk while engaged. This is the only trace that
+    /// survives a crash, and the only way the next launch can know something
+    /// was left switched on.
+    private static let engagedKey = "engagedGuardIDs"
 
     /// Guards that actually ran, so teardown only touches what was touched.
     private var engaged: [any PresentGuard] = []
 
-    init(preferences: Preferences = .shared) {
+    init(preferences: Preferences = .shared, defaults: UserDefaults = .standard) {
         self.preferences = preferences
+        self.defaults = defaults
         self.guards = [
             HideAppsGuard(preferences: preferences),
             NotificationZoneGuard(),
@@ -57,6 +64,7 @@ final class PresentModeController: ObservableObject {
             }
         }
 
+        defaults.set(engaged.map(\.id), forKey: Self.engagedKey)
         isActive = true
         lastError = failures.isEmpty ? nil : failures.joined(separator: "\n")
     }
@@ -67,6 +75,7 @@ final class PresentModeController: ObservableObject {
             logger.info("Released guard \(aGuard.id, privacy: .public)")
         }
         engaged = []
+        defaults.removeObject(forKey: Self.engagedKey)
         isActive = false
         lastError = nil
     }
@@ -79,5 +88,20 @@ final class PresentModeController: ObservableObject {
     /// main-actor isolated.
     func tearDownForTermination() async {
         await deactivate()
+    }
+
+    /// Undoes anything the previous run left engaged.
+    ///
+    /// Call once at launch, before the user can turn Present Mode on. If the
+    /// marker is present, the last process died without tearing down, so every
+    /// guard it had engaged gets a chance to restore itself from scratch.
+    func recoverFromPreviousRun() async {
+        guard let abandoned = defaults.stringArray(forKey: Self.engagedKey), !abandoned.isEmpty else { return }
+        logger.notice("Previous run left guards engaged: \(abandoned.joined(separator: ", "), privacy: .public)")
+
+        for aGuard in guards where abandoned.contains(aGuard.id) {
+            await aGuard.recoverAfterUncleanShutdown()
+        }
+        defaults.removeObject(forKey: Self.engagedKey)
     }
 }

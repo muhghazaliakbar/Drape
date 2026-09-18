@@ -35,6 +35,20 @@ protocol PresentGuard: AnyObject {
     /// through — teardown happens on quit and on crash recovery, where the
     /// guard's own view of the world may be incomplete.
     func deactivate() async
+
+    /// Called once at launch when the previous run ended while this guard was
+    /// still engaged — a crash, a `kill`, a forced restart.
+    ///
+    /// `deactivate()` cannot cover this case: it undoes changes using state held
+    /// in memory, and that state died with the process. A guard that changes
+    /// anything outside its own address space must implement this and restore
+    /// unconditionally, without reference to what it remembers doing.
+    func recoverAfterUncleanShutdown() async
+}
+
+extension PresentGuard {
+    /// Guards whose effects die with the process need no recovery.
+    func recoverAfterUncleanShutdown() async {}
 }
 
 /// Errors a guard can surface to the user without taking down all of Present Mode.

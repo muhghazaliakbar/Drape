@@ -27,6 +27,15 @@ final class DesktopIconsGuard: PresentGuard {
         try? await setDesktopIconsVisible(true)
     }
 
+    /// Restores the desktop unconditionally.
+    ///
+    /// This guard writes to Finder's preferences, which outlive PresentSafe. If
+    /// the app dies while Present Mode is on, nothing else will ever put those
+    /// icons back — the user is left with an empty desktop and no idea why.
+    func recoverAfterUncleanShutdown() async {
+        try? await setDesktopIconsVisible(true)
+    }
+
     private func setDesktopIconsVisible(_ visible: Bool) async throws {
         try await run("/usr/bin/defaults", ["write", "com.apple.finder", "CreateDesktop", "-bool", visible ? "true" : "false"])
         try await run("/usr/bin/killall", ["Finder"])

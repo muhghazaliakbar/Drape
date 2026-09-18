@@ -92,6 +92,12 @@ struct ShortcutRecorder: View {
         }
 
         let candidate = KeyCombo(keyCode: event.keyCode, modifiers: modifiers)
+
+        if let shadowed = candidate.shadowedSystemShortcut {
+            hint = "That would take \(shadowed) away from every app."
+            return true
+        }
+
         guard candidate.isValid else {
             // Stay in recording mode: the user is mid-chord, or tried a bare
             // key that would swallow their typing system-wide.

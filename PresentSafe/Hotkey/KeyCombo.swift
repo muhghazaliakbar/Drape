@@ -46,6 +46,27 @@ struct KeyCombo: Equatable, Hashable, Codable, Sendable {
         !modifiers.intersection([.command, .option, .control]).isEmpty
     }
 
+    /// Names the system shortcut this combination would shadow, if any.
+    ///
+    /// A Carbon hot key outranks menu key equivalents, so registering ⌘Q takes
+    /// Quit away from every app on the Mac — including this one. The list is
+    /// deliberately short: only combinations whose loss would leave the user
+    /// stuck, not every shortcut some app happens to use.
+    var shadowedSystemShortcut: String? {
+        guard modifiers == [.command] else { return nil }
+        switch Int(keyCode) {
+        case kVK_ANSI_Q: return "Quit"
+        case kVK_ANSI_W: return "Close Window"
+        case kVK_Tab: return "Switch Apps"
+        case kVK_Space: return "Spotlight"
+        case kVK_ANSI_Grave: return "Switch Windows"
+        case kVK_ANSI_H: return "Hide"
+        case kVK_ANSI_M: return "Minimise"
+        case kVK_ANSI_Comma: return "Settings"
+        default: return nil
+        }
+    }
+
     /// Rendered the way macOS renders shortcuts: modifiers in the canonical
     /// ⌃⌥⇧⌘ order, then the key.
     var displayString: String {
