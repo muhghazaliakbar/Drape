@@ -17,7 +17,7 @@ when you're done.
 
 | Protection | What happens |
 |---|---|
-| **Hide sensitive apps** | Apps you pick (1Password, Slack, Mail…) are hidden, then brought back afterwards. |
+| **Hide sensitive apps** | Apps you pick (1Password, Slack, Mail…) are hidden, then brought back afterwards. Open one while presenting and its window is covered; launch one that was closed and it does not open at all. Snooze for three minutes if you really need it. |
 | **Cover the notification corner** | Watches for banners and covers the corner only while one is up, on every display. |
 | **Clear the desktop** | Desktop icons disappear for the duration. *Off by default — it restarts Finder.* |
 

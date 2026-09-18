@@ -368,6 +368,18 @@ private struct ToastView: View {
                     SnoozeRegistry.shared.snooze(bundleID)
                     PresentModeHUD.shared.dismissNow()
                     BlockedAppOverlay.shared.dismiss()
+
+                    // A blocked *launch* was closed outright, so snoozing it
+                    // would otherwise leave the user with nothing — they asked
+                    // for the app and got silence. Open it back up for them.
+                    let running = NSWorkspace.shared.runningApplications
+                        .contains { $0.bundleIdentifier == bundleID }
+                    if !running,
+                       let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                        let configuration = NSWorkspace.OpenConfiguration()
+                        configuration.activates = true
+                        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, _ in }
+                    }
                 }
                 .controlSize(.small)
             }

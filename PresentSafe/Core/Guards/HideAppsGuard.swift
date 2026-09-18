@@ -48,9 +48,9 @@ final class HideAppsGuard: PresentGuard {
             app.hide()
         }
 
-        // Hiding once at activation is not enough. A sensitive app launched
-        // mid-presentation — Slack reopening, Mail relaunched by a link — arrives
-        // frontmost and unhidden, which is the worst possible moment for it.
+        // A sensitive app launched mid-presentation — Slack reopening, Mail
+        // raised by a clicked link — arrives frontmost and unhidden, which is
+        // the worst possible moment for it.
         launchObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
             object: nil,
@@ -64,7 +64,7 @@ final class HideAppsGuard: PresentGuard {
 
             MainActor.assumeIsolated { [weak self] in
                 guard let pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
-                self?.hideIfSensitive(app)
+                self?.refuseLaunch(of: app)
             }
         }
 
@@ -232,24 +232,37 @@ final class HideAppsGuard: PresentGuard {
         AnyView(HideAppsConfiguration(preferences: preferences))
     }
 
-    private func hideIfSensitive(_ app: NSRunningApplication) {
-        guard let bundleID = app.bundleIdentifier,
-              // Read preferences now rather than reusing the set captured at
-              // activation, so changes made in Settings take effect immediately.
-              preferences.sensitiveBundleIDs.contains(bundleID),
-              !hiddenByUs.contains(app)
-        else { return }
+    /// Closes a sensitive app that was launched while Present Mode is on.
+    ///
+    /// Covering is the right answer for an app the user already had open —
+    /// it keeps their work and their window where they left them. A launch is
+    /// different: there is nothing to preserve, and the user asked for the app
+    /// not to open at all. So this closes it and offers Snooze, which is the
+    /// only way through.
+    ///
+    /// Deliberately limited to launches. Closing an app that has been running
+    /// for hours could throw away unsaved work, which is not a trade this tool
+    /// gets to make on the user's behalf. `terminate()` is also the polite
+    /// variant — the app is asked to quit and can still save — rather than
+    /// `forceTerminate()`.
+    private func refuseLaunch(of app: NSRunningApplication) {
+        guard isSensitive(app), let bundleID = app.bundleIdentifier else { return }
 
-        // An app that has only just launched may refuse to hide while it is
-        // still bringing up its first window, so retry once.
-        if app.hide() {
-            hiddenByUs.append(app)
-        } else {
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(400))
-                guard !app.isTerminated, app.hide() else { return }
-                hiddenByUs.append(app)
-            }
+        let name = app.localizedName ?? bundleID
+        // Like `hide()`, the return value is recorded rather than trusted.
+        let reported = app.terminate()
+        logger.info("Refused launch of \(bundleID, privacy: .public); terminate() reported \(reported)")
+
+        PresentModeHUD.shared.show(.blocked(appName: name, bundleID: bundleID))
+
+        // An app still working through its own launch may ignore the first
+        // request. One retry, and then it is left to the sweep, which will
+        // cover it rather than keep hammering a process that will not go.
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard let self, !app.isTerminated, self.isSensitive(app) else { return }
+            let retried = app.terminate()
+            self.logger.info("Retried refusing \(bundleID, privacy: .public); terminate() reported \(retried)")
         }
     }
 }
