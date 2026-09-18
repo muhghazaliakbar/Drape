@@ -5,74 +5,162 @@ struct MenuBarContentView: View {
     @EnvironmentObject private var preferences: Preferences
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             header
-
-            Button(action: controller.toggle) {
-                Text(controller.isActive ? "Turn Off Present Mode" : "Turn On Present Mode")
-                    .frame(maxWidth: .infinity)
-            }
-            .controlSize(.large)
-            .buttonStyle(.borderedProminent)
-            .tint(controller.isActive ? .red : .accentColor)
+            primaryAction
 
             if let error = controller.lastError {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
+                warning(error)
             }
 
             Divider()
-            guardSummary
+            protectionSummary
             Divider()
-            footer
+            commands
         }
-        .padding(14)
-        .frame(width: 300)
+        .padding(10)
+        .frame(width: 258)
     }
+
+    // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 8) {
             Image(systemName: controller.isActive ? "eye.slash.circle.fill" : "eye.circle")
-                .font(.title2)
-                .foregroundStyle(controller.isActive ? .red : .secondary)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("PresentSafe").font(.headline)
+                .font(.system(size: 20))
+                // Accent, not red. An active Present Mode means the screen is
+                // covered — that is the state the user wanted, and colouring it
+                // like a warning tells them the opposite.
+                .foregroundStyle(controller.isActive ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("PresentSafe")
+                    .font(.system(size: 13, weight: .semibold))
                 Text(controller.isActive ? "Protecting your screen" : "Idle")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
-            Spacer()
+
+            Spacer(minLength: 6)
+
             Text(preferences.hotKeyCombo.displayString)
-                .font(.caption.monospaced())
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    // Prominent only for the action that starts protection. Tinting the "off"
+    // button red made the safe state look like an alarm, and a filled red
+    // capsule is not something macOS puts in a menu bar panel.
+    @ViewBuilder
+    private var primaryAction: some View {
+        let title = controller.isActive ? "Turn Off Present Mode" : "Turn On Present Mode"
+
+        if controller.isActive {
+            Button(action: controller.toggle) {
+                Text(title).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        } else {
+            Button(action: controller.toggle) {
+                Text(title).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
         }
     }
 
-    private var guardSummary: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private func warning(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: - Protections
+
+    private var protectionSummary: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Protections")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+
             ForEach(controller.guards, id: \.id) { activeGuard in
                 let enabled = preferences.isEnabled(activeGuard)
-                Label {
+                HStack(spacing: 7) {
+                    // The guard's own symbol rather than a generic tick: it says
+                    // which protection this is, not merely that something is on.
+                    Image(systemName: activeGuard.symbolName)
+                        .font(.system(size: 11))
+                        .frame(width: 14)
+                        .foregroundStyle(enabled ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
+
                     Text(activeGuard.title)
-                        .font(.callout)
+                        .font(.system(size: 12))
                         .foregroundStyle(enabled ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
-                } icon: {
-                    Image(systemName: enabled ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(enabled ? AnyShapeStyle(.green) : AnyShapeStyle(.tertiary))
+
+                    Spacer(minLength: 0)
+
+                    if !enabled {
+                        Text("Off")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
+                .padding(.horizontal, 4)
             }
         }
     }
 
-    private var footer: some View {
-        HStack {
-            Button("Settings…") { SettingsWindowController.shared.show() }
-            Spacer()
-            Button("Quit") { NSApplication.shared.terminate(nil) }
+    // MARK: - Commands
+
+    private var commands: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            MenuCommand("Settings…") { SettingsWindowController.shared.show() }
+            MenuCommand("Quit PresentSafe") { NSApplication.shared.terminate(nil) }
         }
-        .buttonStyle(.link)
-        .font(.callout)
     }
 }
+
+/// A row that behaves like a menu item: full-width accent highlight on hover,
+/// which is how every other menu on the system reads. Link-styled blue text was
+/// borrowed from the web and looks foreign here.
+private struct MenuCommand: View {
+    let title: String
+    let action: () -> Void
+
+    @State private var isHighlighted = false
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 12))
+                    .foregroundStyle(isHighlighted ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(isHighlighted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.clear))
+            )
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHighlighted = $0 }
+    }
+}
+

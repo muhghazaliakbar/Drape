@@ -76,13 +76,27 @@ struct KeyCombo: Equatable, Hashable, Codable, Sendable {
     /// Just the modifier symbols. The recorder needs these on their own, to show
     /// the chord building up while no key has been pressed yet.
     static func displayString(for modifiers: NSEvent.ModifierFlags) -> String {
-        var result = ""
-        if modifiers.contains(.control) { result += "⌃" }
-        if modifiers.contains(.option) { result += "⌥" }
-        if modifiers.contains(.shift) { result += "⇧" }
-        if modifiers.contains(.command) { result += "⌘" }
+        symbols(for: modifiers).joined()
+    }
+
+    /// The symbols as separate pieces, in the canonical ⌃⌥⇧⌘ order.
+    ///
+    /// Set as one string they crowd each other — the glyphs are dense and carry
+    /// almost no side bearing — and letter-spacing the whole label pushes the
+    /// key character away too. Laying them out individually is what lets the
+    /// recorder space the modifiers without disturbing anything else.
+    static func symbols(for modifiers: NSEvent.ModifierFlags) -> [String] {
+        var result: [String] = []
+        if modifiers.contains(.control) { result.append("⌃") }
+        if modifiers.contains(.option) { result.append("⌥") }
+        if modifiers.contains(.shift) { result.append("⇧") }
+        if modifiers.contains(.command) { result.append("⌘") }
         return result
     }
+
+    var modifierSymbols: [String] { Self.symbols(for: modifiers) }
+
+    var keyLabel: String { KeyCodeNaming.label(for: keyCode) }
 }
 
 /// Turns a physical key code into something a human recognises.

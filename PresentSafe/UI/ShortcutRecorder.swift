@@ -19,15 +19,11 @@ struct ShortcutRecorder: View {
     @State private var hint: String?
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
+        VStack(alignment: .trailing, spacing: 5) {
             Button(action: toggleRecording) {
-                Text(fieldLabel)
-                    .font(.body.monospaced())
-                    .frame(minWidth: 90)
-                    .contentShape(.rect)
+                token
             }
-            .buttonStyle(.bordered)
-            .tint(isRecording ? .accentColor : nil)
+            .buttonStyle(.plain)
             .overlay {
                 if isRecording {
                     KeyCaptureView(
@@ -39,22 +35,58 @@ struct ShortcutRecorder: View {
                 }
             }
 
-            if let hint {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else if isRecording {
-                Text("⎋ to cancel · ⌫ to reset")
+            if let caption {
+                Text(caption)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
+        // Without this the button stretches to fill the width `LabeledContent`
+        // hands its trailing view, leaving a short chord marooned in the middle
+        // of a very wide control.
+        .fixedSize()
     }
 
-    private var fieldLabel: String {
-        guard isRecording else { return combo.displayString }
-        let modifiersSoFar = KeyCombo.displayString(for: liveModifiers)
-        return modifiersSoFar.isEmpty ? "Type a shortcut" : modifiersSoFar
+    /// The shortcut drawn as a key cap.
+    private var token: some View {
+        HStack(spacing: 4) {
+            if isRecording && liveModifiers.isEmpty {
+                Text("Type a shortcut")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(visibleSymbols, id: \.self) { symbol in
+                    Text(symbol)
+                }
+                if !isRecording {
+                    Text(combo.keyLabel)
+                }
+            }
+        }
+        .font(.system(size: 13, weight: .medium))
+        .frame(minWidth: 84)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isRecording ? AnyShapeStyle(Color.accentColor.opacity(0.18)) : AnyShapeStyle(Color(nsColor: .quaternarySystemFill)))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(
+                    isRecording ? Color.accentColor : Color(nsColor: .separatorColor),
+                    lineWidth: 1
+                )
+        )
+        .contentShape(.rect)
+    }
+
+    private var visibleSymbols: [String] {
+        isRecording ? KeyCombo.symbols(for: liveModifiers) : combo.modifierSymbols
+    }
+
+    private var caption: String? {
+        if let hint { return hint }
+        return isRecording ? "⎋ cancel · ⌫ reset" : nil
     }
 
     private func toggleRecording() {

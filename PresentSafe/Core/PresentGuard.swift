@@ -58,7 +58,10 @@ enum GuardError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConfigured(let detail): "Not configured yet: \(detail)"
+        // No prefix: the controller already labels the message with the
+        // guard's name, and "Hide sensitive apps: Not configured yet: pick an
+        // app" says the same thing three times.
+        case .notConfigured(let detail): detail
         case .systemRefused(let detail): "macOS refused the request: \(detail)"
         }
     }

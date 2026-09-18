@@ -30,7 +30,7 @@ final class HideAppsGuard: PresentGuard {
     func activate() async throws {
         let targets = preferences.sensitiveBundleIDs
         guard !targets.isEmpty else {
-            throw GuardError.notConfigured("pick at least one app in Settings")
+            throw GuardError.notConfigured("Pick at least one app in Settings.")
         }
 
         hiddenByUs = NSWorkspace.shared.runningApplications.filter { app in
