@@ -30,6 +30,14 @@ final class NotificationZoneGuard: PresentGuard {
     /// Banners are about 344pt wide; the cover is a little wider to allow for
     /// shadows and the odd oversized banner.
     private static let coverWidth: CGFloat = 372
+    private static let edgeInset: CGFloat = 10
+
+    /// Slack around the panel for its shadow to fall into.
+    ///
+    /// The window used to be exactly the panel's size, so the shadow was cut
+    /// off square by the window edge — which is what put a hard right angle
+    /// outside each rounded corner.
+    private static let shadowMargin: CGFloat = 44
     private static let pollInterval = Duration.milliseconds(250)
 
     /// Drives the cover's fade from inside SwiftUI. Animating
@@ -149,7 +157,12 @@ final class NotificationZoneGuard: PresentGuard {
 
     private func rebuildCovers() {
         removeCovers()
-        covers = NSScreen.screens.map { makeCover(over: Self.coverFrame(on: $0)) }
+        covers = NSScreen.screens.map { screen in
+            makeCover(
+                frame: Self.windowFrame(fullFrame: screen.frame, visibleFrame: screen.visibleFrame),
+                insets: Self.contentInsets(fullFrame: screen.frame, visibleFrame: screen.visibleFrame)
+            )
+        }
         if isCovering {
             for cover in covers { cover.orderFrontRegardless() }
         }
@@ -162,41 +175,62 @@ final class NotificationZoneGuard: PresentGuard {
         phase.isVisible = false
     }
 
-    /// The full right-hand column of a screen, flush to the right and bottom
-    /// edges and stopping just under the menu bar.
+    /// A full-height column down the right-hand side, inset from the visible
+    /// frame so it clears the menu bar and the Dock.
     ///
     /// Full height rather than a banner-sized card, because a stack grows
     /// downwards and there is no way to learn how tall it got: macOS publishes
     /// only a full-screen host window for Notification Center, never the
     /// banners' own frames. A fixed height would be a guess that leaks the
     /// moment three notifications arrive at once.
-    ///
-    /// It reaches past the Dock deliberately — Dock badges count unread
-    /// messages, which is the same thing this guard is covering up.
     static func coverFrame(on screen: NSScreen) -> NSRect {
         coverFrame(fullFrame: screen.frame, visibleFrame: screen.visibleFrame)
     }
 
-    /// Split out from `NSScreen` so the geometry can be tested. "Flush to the
-    /// edges" is a claim about numbers, and `NSScreen` cannot be constructed.
+    /// Split out from `NSScreen` so the geometry can be tested. Where the panel
+    /// sits is a claim about numbers, and `NSScreen` cannot be constructed.
     static func coverFrame(fullFrame full: NSRect, visibleFrame visible: NSRect) -> NSRect {
-        let width = min(coverWidth, full.width)
+        let width = min(coverWidth, max(0, visible.width - edgeInset * 2))
         return NSRect(
-            x: full.maxX - width,
-            y: full.minY,
+            x: visible.maxX - width - edgeInset,
+            y: visible.minY + edgeInset,
             width: width,
-            height: visible.maxY - full.minY
+            height: max(0, visible.height - edgeInset * 2)
         )
     }
 
-    private func makeCover(over frame: NSRect) -> NSWindow {
+    /// The window that hosts the panel: the panel plus room on every side for
+    /// its shadow, clipped to the display. Everything outside the panel is
+    /// transparent and passes clicks through.
+    static func windowFrame(fullFrame full: NSRect, visibleFrame visible: NSRect) -> NSRect {
+        coverFrame(fullFrame: full, visibleFrame: visible)
+            .insetBy(dx: -shadowMargin, dy: -shadowMargin)
+            .intersection(full)
+    }
+
+    /// How far the panel sits inside its window on each side, so the content
+    /// can be padded back into place.
+    static func contentInsets(fullFrame full: NSRect, visibleFrame visible: NSRect) -> EdgeInsets {
+        let panel = coverFrame(fullFrame: full, visibleFrame: visible)
+        let window = windowFrame(fullFrame: full, visibleFrame: visible)
+        return EdgeInsets(
+            top: window.maxY - panel.maxY,
+            leading: panel.minX - window.minX,
+            bottom: panel.minY - window.minY,
+            trailing: window.maxX - panel.maxX
+        )
+    }
+
+    private func makeCover(frame: NSRect, insets: EdgeInsets) -> NSWindow {
         let window = NSWindow(
             contentRect: frame,
             styleMask: .borderless,
             backing: .buffered,
             defer: false
         )
-        window.contentView = NSHostingView(rootView: NotificationCoverView(phase: phase))
+        window.contentView = NSHostingView(
+            rootView: NotificationCoverView(phase: phase, insets: insets)
+        )
         // Clear and non-opaque so the panel's own rounded corners survive; the
         // panel itself is fully opaque, because a blurred material would leave
         // a banner's shape and colour readable through it.
@@ -217,53 +251,45 @@ final class NotificationZoneGuard: PresentGuard {
 /// What the audience sees instead of the notification.
 ///
 /// Glass rather than a solid slab: it reads as a deliberate surface laid over
-/// the screen instead of a rectangle that failed to render. Only the leading
-/// corners are rounded, because the panel is flush with the right, top and
-/// bottom edges — a shape that hugs the display rather than floating on it.
+/// the screen instead of a rectangle that failed to render.
 ///
 /// The tint over the glass is the one concession to what this panel is for.
-/// Pure material blurs text into illegibility but still passes shapes and
-/// colour, so a viewer could tell which app had just messaged you. `tintOpacity`
-/// is the dial: lower it for more glass, raise it for more cover.
+/// Blur alone reduces text to illegibility but still passes shapes and colour,
+/// so a viewer could tell which app had just messaged you. `tintOpacity` is the
+/// dial: lower it for more glass, raise it for more cover.
 private struct NotificationCoverView: View {
-    private static let cornerRadius: CGFloat = 26
-    private static let tintOpacity: Double = 0.28
+    private static let cornerRadius: CGFloat = 14
+    private static let tintOpacity: Double = 0.18
+    private static let material: NSVisualEffectView.Material = .hudWindow
 
     @ObservedObject var phase: NotificationZoneGuard.Phase
+    let insets: EdgeInsets
 
-    private var shape: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(
-            cornerRadii: RectangleCornerRadii(
-                topLeading: Self.cornerRadius,
-                bottomLeading: Self.cornerRadius,
-                bottomTrailing: 0,
-                topTrailing: 0
-            ),
-            style: .continuous
-        )
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
     }
 
     var body: some View {
-        glass
-            .overlay { tint }
-            .overlay { rim }
-            .overlay(alignment: .top) { label }
-            .shadow(color: .black.opacity(0.25), radius: 18, x: -8)
+        panel
+            // The window is larger than the panel so the shadow has somewhere
+            // to fall. Without the slack it was clipped square by the window
+            // edge, which drew a hard right angle outside each rounded corner.
+            .padding(insets)
             .opacity(phase.isVisible ? 1 : 0)
             .ignoresSafeArea()
     }
 
-    @ViewBuilder
-    private var glass: some View {
-        if #available(macOS 26.0, *) {
-            Color.clear.glassEffect(.regular, in: shape)
-        } else {
-            shape.fill(.regularMaterial)
-        }
+    private var panel: some View {
+        BackdropView(material: Self.material)
+            .clipShape(shape)
+            .overlay { tint }
+            .overlay { rim }
+            .overlay(alignment: .top) { label }
+            .shadow(color: .black.opacity(0.28), radius: 16, y: 2)
     }
 
     private var tint: some View {
-        shape.fill(Color(nsColor: .windowBackgroundColor).opacity(Self.tintOpacity))
+        shape.fill(Color.black.opacity(Self.tintOpacity))
     }
 
     /// A specular edge along the lit side, which is what stops a translucent
@@ -271,7 +297,7 @@ private struct NotificationCoverView: View {
     private var rim: some View {
         shape.strokeBorder(
             LinearGradient(
-                colors: [.white.opacity(0.30), .white.opacity(0.05)],
+                colors: [.white.opacity(0.28), .white.opacity(0.04)],
                 startPoint: .topLeading,
                 endPoint: .bottom
             ),
@@ -288,5 +314,34 @@ private struct NotificationCoverView: View {
         }
         .foregroundStyle(.secondary)
         .padding(.top, 24)
+    }
+}
+
+/// A translucent backdrop that samples the screen behind the window.
+///
+/// SwiftUI's `.regularMaterial` blends against whatever is inside the same
+/// window. In a borderless overlay there is nothing inside it, so the material
+/// resolves to a flat colour and the panel comes out looking opaque. Only
+/// `NSVisualEffectView` with `.behindWindow` blending reaches past the window
+/// to the screen underneath, which is the whole effect.
+private struct BackdropView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        apply(to: view)
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        apply(to: view)
+    }
+
+    private func apply(to view: NSVisualEffectView) {
+        view.material = material
+        view.blendingMode = .behindWindow
+        // Without `.active` the blur stops whenever the app is not frontmost —
+        // which, for a menu bar utility, is always.
+        view.state = .active
     }
 }
