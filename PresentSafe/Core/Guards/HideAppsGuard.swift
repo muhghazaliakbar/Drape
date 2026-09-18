@@ -26,6 +26,7 @@ final class HideAppsGuard: PresentGuard {
     private var launchObserver: (any NSObjectProtocol)?
     private var activationObserver: (any NSObjectProtocol)?
     private var unhideObserver: (any NSObjectProtocol)?
+    private var sweepTask: Task<Void, Never>?
     private let logger = Logger(subsystem: "dev.justghali.PresentSafe", category: "HideApps")
 
     init(preferences: Preferences) {
@@ -92,6 +93,8 @@ final class HideAppsGuard: PresentGuard {
             }
         }
 
+        startSweeping()
+
         unhideObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didUnhideApplicationNotification,
             object: nil,
@@ -103,6 +106,31 @@ final class HideAppsGuard: PresentGuard {
                 guard let pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
                 guard self?.isSensitive(app) == true else { return }
                 self?.block(app, trigger: "unhide")
+            }
+        }
+    }
+
+    /// A slow backstop for everything the notifications miss.
+    ///
+    /// Chiefly a snooze running out while the user is still in the app: no
+    /// activation follows, because they never left. It also catches any
+    /// notification that never arrives, which for a privacy tool is worth one
+    /// cheap check a second.
+    private func startSweeping() {
+        sweepTask?.cancel()
+        sweepTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, let self else { return }
+
+                guard let frontmost = NSWorkspace.shared.frontmostApplication,
+                      frontmost.bundleIdentifier != Bundle.main.bundleIdentifier,
+                      self.isSensitive(frontmost),
+                      !frontmost.isHidden,
+                      BlockedAppOverlay.shared.blockedApp != frontmost
+                else { continue }
+
+                self.block(frontmost, trigger: "sweep")
             }
         }
     }
@@ -119,7 +147,12 @@ final class HideAppsGuard: PresentGuard {
         launchObserver = nil
         activationObserver = nil
         unhideObserver = nil
+        sweepTask?.cancel()
+        sweepTask = nil
         BlockedAppOverlay.shared.dismiss()
+        // Snoozes last one session. Turning protection off and on again is a
+        // deliberate act and should mean what it says.
+        SnoozeRegistry.shared.clear()
 
         for app in hiddenByUs where !app.isTerminated {
             app.unhide()
@@ -154,9 +187,12 @@ final class HideAppsGuard: PresentGuard {
 
     private func isSensitive(_ app: NSRunningApplication) -> Bool {
         guard preferences.keepsSensitiveAppsHidden,
-              let bundleID = app.bundleIdentifier
+              let bundleID = app.bundleIdentifier,
+              preferences.sensitiveBundleIDs.contains(bundleID)
         else { return false }
-        return preferences.sensitiveBundleIDs.contains(bundleID)
+        // A snoozed app is simply not sensitive for the moment, which makes one
+        // check cover blocking, covering and putting away all at once.
+        return !SnoozeRegistry.shared.isSnoozed(bundleID)
     }
 
     /// Covers the app rather than hiding it immediately.
@@ -166,9 +202,15 @@ final class HideAppsGuard: PresentGuard {
     /// disorienting mid-presentation. The cover holds everything still and says
     /// what happened.
     private func block(_ app: NSRunningApplication, trigger: String) {
-        logger.info("Blocking \(app.bundleIdentifier ?? "?", privacy: .public) on \(trigger, privacy: .public)")
-        BlockedAppOverlay.shared.show(for: app)
-        PresentModeHUD.shared.show(.blocked(appName: app.localizedName ?? app.bundleIdentifier ?? "App"))
+        let name = app.localizedName ?? app.bundleIdentifier ?? "App"
+
+        // An app with windows on screen gets them covered, each at its own
+        // size. One that has none — just launched, or every window closed —
+        // has nothing to cover, so the card carries the message alone.
+        let covered = BlockedAppOverlay.shared.cover(app)
+        logger.info("Blocking \(app.bundleIdentifier ?? "?", privacy: .public) on \(trigger, privacy: .public); covered windows: \(covered)")
+
+        PresentModeHUD.shared.show(.blocked(appName: name, bundleID: app.bundleIdentifier))
     }
 
     private func putAway(_ app: NSRunningApplication) {

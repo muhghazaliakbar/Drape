@@ -29,13 +29,13 @@ final class PresentModeHUD {
         /// A sensitive app was brought back while Present Mode was on, and put
         /// away again. Without this the app would simply bounce, which reads as
         /// a bug rather than a decision.
-        case blocked(appName: String)
+        case blocked(appName: String, bundleID: String?)
 
         var title: String {
             switch self {
             case .activated: String(localized: "Present Mode on")
             case .deactivated: String(localized: "Present Mode off")
-            case .blocked(let appName): String(localized: "\(appName) stays hidden")
+            case .blocked(let appName, _): String(localized: "\(appName) is Blocked")
             }
         }
 
@@ -47,8 +47,8 @@ final class PresentModeHUD {
                     : String(localized: "\(count) protections active")
             case .deactivated:
                 String(localized: "Everything restored")
-            case .blocked:
-                String(localized: "Turn off Present Mode to use it")
+            case .blocked(let appName, _):
+                String(localized: "PresentSafe is blocking \(appName)")
             }
         }
 
@@ -106,6 +106,15 @@ final class PresentModeHUD {
         windows = NSScreen.screens.map { makeGlowWindow(on: $0, tint: state.tint, phase: phase) }
         windows.append(makeToastWindow(for: state, phase: phase))
 
+        // Only a block offers an action, and only a window that can take key
+        // status can have its button clicked. The other states stay inert, so
+        // a confirmation never steals focus mid-sentence.
+        if case .blocked = state, let toast = windows.last {
+            toast.ignoresMouseEvents = false
+            NSApp.activate()
+            toast.makeKeyAndOrderFront(nil)
+        }
+
         for window in windows {
             // Full opacity from the start: the content is what fades, so there
             // is nothing here for the window server to animate.
@@ -129,6 +138,13 @@ final class PresentModeHUD {
             guard !Task.isCancelled else { return }
             self?.closeWindows()
         }
+    }
+
+    /// Ends the current card immediately, for when the user has acted on it.
+    func dismissNow() {
+        lifecycle?.cancel()
+        lifecycle = nil
+        closeWindows()
     }
 
     private func closeWindows() {
@@ -156,13 +172,24 @@ final class PresentModeHUD {
             height: size.height
         )
 
-        let window = makeOverlayWindow(frame: frame)
+        let window = InteractiveOverlayWindow(
+            contentRect: frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        configure(window, frame: frame)
         window.contentView = NSHostingView(rootView: ToastView(state: state).environmentObject(phase))
         return window
     }
 
     private func makeOverlayWindow(frame: NSRect) -> NSWindow {
         let window = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
+        configure(window, frame: frame)
+        return window
+    }
+
+    private func configure(_ window: NSWindow, frame: NSRect) {
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = false
@@ -172,8 +199,13 @@ final class PresentModeHUD {
         // Keep the confirmation off the shared screen. See the type's note.
         window.sharingType = .none
         window.setFrame(frame, display: false)
-        return window
     }
+}
+
+/// A borderless window refuses key status unless it says otherwise, and the
+/// Snooze button is unusable without it.
+private final class InteractiveOverlayWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
 }
 
 /// A soft inward glow around the edge of a display.
@@ -330,6 +362,15 @@ private struct ToastView: View {
             }
 
             Spacer(minLength: 0)
+
+            if case .blocked(_, let bundleID) = state, let bundleID {
+                Button("Snooze") {
+                    SnoozeRegistry.shared.snooze(bundleID)
+                    PresentModeHUD.shared.dismissNow()
+                    BlockedAppOverlay.shared.dismiss()
+                }
+                .controlSize(.small)
+            }
         }
         .padding(.horizontal, 15)
         .frame(height: 62)

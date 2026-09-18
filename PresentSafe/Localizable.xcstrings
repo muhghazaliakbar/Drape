@@ -1,22 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "%@ is hidden while you present": {
+    "%@ is Blocked": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ disembunyikan selama Anda presentasi"
+            "value": "%@ Diblokir"
           }
         }
       }
     },
-    "%@ stays hidden": {
+    "%@ is blocked": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ tetap tersembunyi"
+            "value": "%@ diblokir"
           }
         }
       }
@@ -367,16 +367,6 @@
         }
       }
     },
-    "Present Mode is on, so this app stays out of the way.": {
-      "localizations": {
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Present Mode aktif, jadi aplikasi ini disingkirkan."
-          }
-        }
-      }
-    },
     "Present Mode off": {
       "localizations": {
         "id": {
@@ -399,6 +389,26 @@
     },
     "PresentSafe": {
       "shouldTranslate": false
+    },
+    "PresentSafe is blocking %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PresentSafe sedang memblokir %@"
+          }
+        }
+      }
+    },
+    "PresentSafe is hiding it while you present.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PresentSafe menyembunyikannya selama Anda presentasi."
+          }
+        }
+      }
     },
     "Protecting your screen": {
       "localizations": {
@@ -500,22 +510,32 @@
         }
       }
     },
+    "Snooze": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tunda"
+          }
+        }
+      }
+    },
+    "Snooze for 3 minutes": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tunda 3 menit"
+          }
+        }
+      }
+    },
     "Source Code": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "Kode Sumber"
-          }
-        }
-      }
-    },
-    "Switch to another app and this one will be put away.": {
-      "localizations": {
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pindah ke aplikasi lain dan yang ini akan disimpan."
           }
         }
       }
@@ -566,16 +586,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nyalakan Present Mode"
-          }
-        }
-      }
-    },
-    "Turn off Present Mode to use it": {
-      "localizations": {
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Matikan Present Mode untuk memakainya"
           }
         }
       }
