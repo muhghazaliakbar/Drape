@@ -10,6 +10,7 @@ import SwiftUI
 enum SettingsPane: String, CaseIterable, Identifiable {
     case protections
     case apps
+    case about
 
     var id: String { rawValue }
 
@@ -17,6 +18,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         switch self {
         case .protections: "Protections"
         case .apps: "Apps"
+        case .about: "About"
         }
     }
 
@@ -24,6 +26,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         switch self {
         case .protections: "shield.lefthalf.filled"
         case .apps: "square.grid.2x2"
+        case .about: "info.circle"
         }
     }
 
@@ -31,6 +34,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         switch self {
         case .protections: NSSize(width: 520, height: 400)
         case .apps: NSSize(width: 520, height: 520)
+        case .about: NSSize(width: 520, height: 470)
         }
     }
 
@@ -43,6 +47,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         switch self {
         case .protections: ProtectionsPane()
         case .apps: SensitiveAppsPane()
+        case .about: AboutPane()
         }
     }
 }
