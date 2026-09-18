@@ -18,11 +18,5 @@ struct PresentSafeApp: App {
             Image(systemName: controller.isActive ? "eye.slash.circle.fill" : "eye.circle")
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            SettingsView()
-                .environmentObject(controller)
-                .environmentObject(preferences)
-        }
     }
 }

@@ -76,8 +76,18 @@ struct SensitiveAppsSettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // A search field of our own rather than `.searchable(.toolbar)`.
+            // The toolbar placement collides with the enclosing TabView's tab
+            // strip: the field ends up sharing that row, and the list then
+            // scrolls underneath both with nothing separating them.
+            searchField
+            Divider()
+
             if isLoading {
                 ProgressView("Looking for installed apps…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if visibleApps.isEmpty {
+                ContentUnavailableView.search(text: query)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(visibleApps) { app in
@@ -85,25 +95,48 @@ struct SensitiveAppsSettingsView: View {
                         HStack(spacing: 8) {
                             Image(nsImage: app.icon)
                                 .resizable()
-                                .frame(width: 20, height: 20)
+                                .frame(width: 18, height: 18)
                             Text(app.name)
+                                .lineLimit(1)
                         }
                     }
                     .toggleStyle(.checkbox)
                 }
-                .searchable(text: $query, placement: .toolbar, prompt: "Search apps")
+                .listStyle(.inset)
             }
 
             Divider()
             Text("^[\(preferences.sensitiveBundleIDs.count) app](inflect: true) will be hidden when Present Mode is on.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(8)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
         }
         .task {
             apps = await AppCatalog.installedApps()
             isLoading = false
         }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search apps", text: $query)
+                .textFieldStyle(.plain)
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
     }
 
     private func binding(for app: CatalogedApp) -> Binding<Bool> {

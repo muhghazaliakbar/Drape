@@ -3,7 +3,6 @@ import SwiftUI
 struct MenuBarContentView: View {
     @EnvironmentObject private var controller: PresentModeController
     @EnvironmentObject private var preferences: Preferences
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -69,7 +68,7 @@ struct MenuBarContentView: View {
 
     private var footer: some View {
         HStack {
-            Button("Settings…") { openSettings() }
+            Button("Settings…") { SettingsWindowController.shared.show() }
             Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }
         }
