@@ -23,6 +23,12 @@ when you're done.
 
 Each protection is independent. Turn on only what you want.
 
+On first launch PresentSafe ticks the sensitive apps you already have, drawn from a
+built-in list of password managers, messaging clients and mail apps — so it protects
+something before you configure anything. Only apps actually installed on your Mac are
+ever selected, and everything is yours to change in Settings. Missing an app? That list
+is [one file](PresentSafe/Settings/Preferences.swift) and a good first contribution.
+
 ## What it does not do
 
 Being straight about the limits, because a privacy tool that overpromises is worse
