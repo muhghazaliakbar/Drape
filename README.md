@@ -55,6 +55,12 @@ open PresentSafe.xcodeproj
 
 Then build and run (`⌘R`). Signed release builds will arrive once the feature set settles.
 
+To run the tests:
+
+```bash
+xcodebuild test -project PresentSafe.xcodeproj -scheme PresentSafe -destination 'platform=macOS'
+```
+
 No Accessibility permission is required. That is a design constraint, not an
 accident — see below.
 
@@ -81,9 +87,16 @@ Two decisions worth calling out:
 **Teardown is treated as the critical path, not activation.** If a guard throws halfway
 through `activate()`, the controller still records it as engaged, because a partial change
 still needs undoing. Quitting the app while Present Mode is on goes through
-`.terminateLater` so guards finish restoring before the process dies. The worst outcome
-for this app is not "failed to protect" — it is "hid your apps and then forgot to bring
-them back".
+`.terminateLater` so guards finish restoring before the process dies. And because a crash
+skips teardown entirely, the engaged guards are written to disk: the next launch undoes
+whatever the dead process left switched on. The worst outcome for this app is not "failed
+to protect" — it is "hid your apps and then forgot to bring them back".
+
+**Protection is continuous, not a one-shot.** Guards keep watching after they engage. A
+sensitive app launched mid-presentation gets hidden as it appears, and a display connected
+after Present Mode is already on gets covered. Both were bugs first: the original guards
+acted once at activation and then stopped paying attention, which failed in exactly the
+moment that matters — the one where you plug in the projector.
 
 **Shortcuts are stored by physical key position, not by character.** A shortcut recorded
 on the key where QWERTY has `P` keeps working after switching to AZERTY — and the label
@@ -107,7 +120,11 @@ reach for *seconds* before you present, that trade is worth it.
 ## Contributing
 
 New protections are the most useful contribution: conform to `PresentGuard`, add it to
-the registry, done. Issues and PRs welcome.
+the registry, done. If your guard changes anything that outlives the process, implement
+`recoverAfterUncleanShutdown()` too.
+
+Pure logic is unit-tested (see `PresentSafeTests`); the guards themselves are not, since
+they mostly instruct macOS to do things. Issues and PRs welcome.
 
 ## Licence
 

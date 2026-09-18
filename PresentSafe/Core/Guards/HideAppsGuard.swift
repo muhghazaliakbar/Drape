@@ -21,6 +21,7 @@ final class HideAppsGuard: PresentGuard {
     /// are left alone on the way out, so Present Mode never un-hides something
     /// the user deliberately put away.
     private var hiddenByUs: [NSRunningApplication] = []
+    private var launchObserver: (any NSObjectProtocol)?
 
     init(preferences: Preferences) {
         self.preferences = preferences
@@ -40,12 +41,59 @@ final class HideAppsGuard: PresentGuard {
         for app in hiddenByUs {
             app.hide()
         }
+
+        // Hiding once at activation is not enough. A sensitive app launched
+        // mid-presentation — Slack reopening, Mail relaunched by a link — arrives
+        // frontmost and unhidden, which is the worst possible moment for it.
+        launchObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            // Neither `Notification` nor `NSRunningApplication` is Sendable, so
+            // nothing from the notification can cross into the isolated closure.
+            // The pid can: it is an Int32, and re-resolving it on the main actor
+            // gives back an equivalent object.
+            let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
+                .processIdentifier
+
+            MainActor.assumeIsolated { [weak self] in
+                guard let pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
+                self?.hideIfSensitive(app)
+            }
+        }
     }
 
     func deactivate() async {
+        if let launchObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(launchObserver)
+            self.launchObserver = nil
+        }
+
         for app in hiddenByUs where !app.isTerminated {
             app.unhide()
         }
         hiddenByUs = []
+    }
+
+    private func hideIfSensitive(_ app: NSRunningApplication) {
+        guard let bundleID = app.bundleIdentifier,
+              // Read preferences now rather than reusing the set captured at
+              // activation, so changes made in Settings take effect immediately.
+              preferences.sensitiveBundleIDs.contains(bundleID),
+              !hiddenByUs.contains(app)
+        else { return }
+
+        // An app that has only just launched may refuse to hide while it is
+        // still bringing up its first window, so retry once.
+        if app.hide() {
+            hiddenByUs.append(app)
+        } else {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !app.isTerminated, app.hide() else { return }
+                hiddenByUs.append(app)
+            }
+        }
     }
 }

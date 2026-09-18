@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  test:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -14,12 +14,11 @@ jobs:
       - name: Show toolchain
         run: swift --version && xcodebuild -version
 
-      - name: Build
+      # Ad-hoc signing (CODE_SIGN_IDENTITY "-") is set in the project, and the
+      # unit tests need a real app bundle to host them, so signing stays on.
+      - name: Build and test
         run: |
-          xcodebuild build \
+          xcodebuild test \
             -project PresentSafe.xcodeproj \
             -scheme PresentSafe \
-            -configuration Release \
-            -destination 'platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcpretty && exit ${PIPESTATUS[0]}
+            -destination 'platform=macOS'
