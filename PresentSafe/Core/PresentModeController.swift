@@ -46,7 +46,15 @@ final class PresentModeController: ObservableObject {
     }
 
     func toggle() {
-        Task { isActive ? await deactivate() : await activate() }
+        Task {
+            if isActive {
+                await deactivate()
+                PresentModeHUD.shared.show(.deactivated)
+            } else {
+                await activate()
+                PresentModeHUD.shared.show(.activated(protections: engaged.count))
+            }
+        }
     }
 
     func activate() async {

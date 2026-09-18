@@ -22,6 +22,19 @@ struct ProtectionsPane: View {
             }
 
             Section {
+                Toggle(isOn: $preferences.showsOnScreenConfirmation) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show on-screen confirmation")
+                        Text("A brief glow and a card when Present Mode switches. Hidden from screen capture.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .toggleStyle(.switch)
+            }
+
+            Section {
                 LabeledContent("Toggle Present Mode") {
                     ShortcutRecorder(combo: $preferences.hotKeyCombo)
                 }
