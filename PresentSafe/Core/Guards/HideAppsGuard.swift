@@ -88,10 +88,7 @@ final class HideAppsGuard: PresentGuard {
 
             MainActor.assumeIsolated { [weak self] in
                 guard let pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
-                // An app still marked hidden is mid-unhide; `didUnhide` will
-                // follow and handle it. Acting twice would double the card.
-                guard !app.isHidden else { return }
-                self?.putBackIfSensitive(app, trigger: "activate")
+                self?.handleActivation(of: app)
             }
         }
 
@@ -104,7 +101,8 @@ final class HideAppsGuard: PresentGuard {
 
             MainActor.assumeIsolated { [weak self] in
                 guard let pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
-                self?.putBackIfSensitive(app, trigger: "unhide")
+                guard self?.isSensitive(app) == true else { return }
+                self?.block(app, trigger: "unhide")
             }
         }
     }
@@ -121,6 +119,7 @@ final class HideAppsGuard: PresentGuard {
         launchObserver = nil
         activationObserver = nil
         unhideObserver = nil
+        BlockedAppOverlay.shared.dismiss()
 
         for app in hiddenByUs where !app.isTerminated {
             app.unhide()
@@ -133,22 +132,58 @@ final class HideAppsGuard: PresentGuard {
     /// An app that simply bounces reads as a bug, so this always explains
     /// itself. The user is not locked out: the shortcut is one press away, and
     /// the card says so.
-    private func putBackIfSensitive(_ app: NSRunningApplication, trigger: String) {
+    private func handleActivation(of app: NSRunningApplication) {
+        // Our own overlay takes key status to make its button usable, which
+        // activates this app. Reacting to that would dismiss the overlay the
+        // instant it appeared.
+        guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
+
+        // An app still marked hidden is mid-unhide; `didUnhide` follows and
+        // handles it. Acting on both would cover it twice.
+        if isSensitive(app), !app.isHidden {
+            block(app, trigger: "activate")
+            return
+        }
+
+        // The user moved on. Now, and only now, the blocked app is put away —
+        // which is what the overlay told them would happen.
+        if let blocked = BlockedAppOverlay.shared.blockedApp, blocked != app {
+            putAway(blocked)
+        }
+    }
+
+    private func isSensitive(_ app: NSRunningApplication) -> Bool {
         guard preferences.keepsSensitiveAppsHidden,
-              let bundleID = app.bundleIdentifier,
-              preferences.sensitiveBundleIDs.contains(bundleID)
-        else { return }
+              let bundleID = app.bundleIdentifier
+        else { return false }
+        return preferences.sensitiveBundleIDs.contains(bundleID)
+    }
+
+    /// Covers the app rather than hiding it immediately.
+    ///
+    /// Hiding on sight worked and felt broken: an app that bounces with no
+    /// explanation reads as a crash, and the abrupt change of frontmost app is
+    /// disorienting mid-presentation. The cover holds everything still and says
+    /// what happened.
+    private func block(_ app: NSRunningApplication, trigger: String) {
+        logger.info("Blocking \(app.bundleIdentifier ?? "?", privacy: .public) on \(trigger, privacy: .public)")
+        BlockedAppOverlay.shared.show(for: app)
+        PresentModeHUD.shared.show(.blocked(appName: app.localizedName ?? app.bundleIdentifier ?? "App"))
+    }
+
+    private func putAway(_ app: NSRunningApplication) {
+        BlockedAppOverlay.shared.dismiss()
+        guard !app.isTerminated else { return }
 
         // The result of `hide()` is deliberately not used as a condition. It
         // reports `false` in situations where the hide still lands, so gating
         // on it silently skips the very case this exists for.
         let reported = app.hide()
-        logger.info("Put back \(bundleID, privacy: .public) on \(trigger, privacy: .public); hide() reported \(reported)")
+        logger.info("Put away \(app.bundleIdentifier ?? "?", privacy: .public); hide() reported \(reported)")
 
         if !hiddenByUs.contains(app) {
             hiddenByUs.append(app)
         }
-        PresentModeHUD.shared.show(.blocked(appName: app.localizedName ?? bundleID))
     }
 
     var configuration: AnyView? {
