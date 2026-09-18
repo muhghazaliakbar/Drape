@@ -164,16 +164,22 @@ final class PresentModeHUD {
 /// A soft inward glow around the edge of a display.
 ///
 /// Four gradients rather than one blurred stroke. A blur across a 4K surface is
-/// recomputed every frame and was enough to make the fade stutter; gradients
-/// cost effectively nothing and give a falloff that is easier to shape.
+/// recomputed every frame and was expensive enough to stutter on its own.
+///
+/// The bands are mitred like a picture frame rather than laid over each other.
+/// Overlapping full-length bands compound their alpha in the corners, which
+/// reads as an uneven glow — brighter at the corners than along the middle of
+/// each edge. Cut to 45° they tile the border exactly once, and the joins are
+/// invisible because at the diagonal a point is equally far from both edges, so
+/// both gradients resolve to the same value there.
 private struct EdgeGlowView: View {
     /// Tuning lives here. The glow has to register at the edge of vision while
     /// the user is looking at something else entirely — noticeable, never a
     /// wash over the screen they are about to present.
-    private static let maxDepth: CGFloat = 130
-    private static let depthRatio: CGFloat = 0.11
-    private static let innerOpacity: Double = 0.30
-    private static let midOpacity: Double = 0.08
+    private static let maxDepth: CGFloat = 100
+    private static let depthRatio: CGFloat = 0.085
+    private static let innerOpacity: Double = 0.22
+    private static let midOpacity: Double = 0.05
 
     let tint: Color
     @EnvironmentObject private var phase: PresentModeHUD.Phase
@@ -197,7 +203,6 @@ private struct EdgeGlowView: View {
         .allowsHitTesting(false)
     }
 
-    @ViewBuilder
     private func band(_ edge: Edge, depth: CGFloat) -> some View {
         let gradient = LinearGradient(
             stops: [
@@ -205,29 +210,65 @@ private struct EdgeGlowView: View {
                 .init(color: tint.opacity(Self.midOpacity), location: 0.38),
                 .init(color: .clear, location: 1),
             ],
-            startPoint: edge.startPoint,
-            endPoint: edge.endPoint
+            startPoint: edge.glowStart,
+            endPoint: edge.glowEnd
         )
 
+        let isHorizontal = edge == .top || edge == .bottom
+
+        return Rectangle()
+            .fill(gradient)
+            .frame(
+                width: isHorizontal ? nil : depth,
+                height: isHorizontal ? depth : nil
+            )
+            .clipShape(MitredBand(edge: edge))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: edge.alignment)
+    }
+}
+
+/// One side of the frame, cut back at 45° where it meets its neighbours.
+private struct MitredBand: Shape {
+    let edge: Edge
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
         switch edge {
-        case .top, .bottom:
-            VStack(spacing: 0) {
-                if edge == .bottom { Spacer(minLength: 0) }
-                Rectangle().fill(gradient).frame(height: depth)
-                if edge == .top { Spacer(minLength: 0) }
-            }
-        case .leading, .trailing:
-            HStack(spacing: 0) {
-                if edge == .trailing { Spacer(minLength: 0) }
-                Rectangle().fill(gradient).frame(width: depth)
-                if edge == .leading { Spacer(minLength: 0) }
-            }
+        case .top:
+            let depth = rect.height
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX - depth, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX + depth, y: rect.maxY))
+        case .bottom:
+            let depth = rect.height
+            path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.maxX - depth, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.minX + depth, y: rect.minY))
+        case .leading:
+            let depth = rect.width
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - depth))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + depth))
+        case .trailing:
+            let depth = rect.width
+            path.move(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - depth))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + depth))
         }
+
+        path.closeSubpath()
+        return path
     }
 }
 
 private extension Edge {
-    var startPoint: UnitPoint {
+    /// The gradient runs inwards from the screen edge.
+    var glowStart: UnitPoint {
         switch self {
         case .top: .top
         case .bottom: .bottom
@@ -236,12 +277,21 @@ private extension Edge {
         }
     }
 
-    var endPoint: UnitPoint {
+    var glowEnd: UnitPoint {
         switch self {
         case .top: .bottom
         case .bottom: .top
         case .leading: .trailing
         case .trailing: .leading
+        }
+    }
+
+    var alignment: Alignment {
+        switch self {
+        case .top: .top
+        case .bottom: .bottom
+        case .leading: .leading
+        case .trailing: .trailing
         }
     }
 }
