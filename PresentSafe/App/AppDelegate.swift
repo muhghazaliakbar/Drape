@@ -2,13 +2,8 @@ import AppKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let hotKey = GlobalHotKey()
-
     func applicationDidFinishLaunching(_ notification: Notification) {
-        hotKey.register { [weak self] in
-            _ = self
-            PresentModeController.shared.toggle()
-        }
+        HotKeyCenter.shared.start()
     }
 
     /// Never quit while guards are still engaged. Leaving someone's password

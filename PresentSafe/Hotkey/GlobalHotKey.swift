@@ -10,11 +10,24 @@ import Carbon.HIToolbox
 /// immediately after install matters more than using a modern API.
 @MainActor
 final class GlobalHotKey {
-    /// Control-Option-Command-P: deliberately awkward, because the cost of
-    /// triggering this by accident mid-presentation is higher than the cost of
-    /// a four-finger chord.
-    static let defaultKeyCode = UInt32(kVK_ANSI_P)
-    static let defaultModifiers = UInt32(controlKey | optionKey | cmdKey)
+    enum RegistrationError: LocalizedError {
+        /// `eventHotKeyExistsErr`. Verified behaviour: this fires only for a
+        /// duplicate registration *inside one process* — two separate apps can
+        /// both register the same combination and macOS reports no conflict to
+        /// either of them. So this is a bug guard, not a "taken by another app"
+        /// signal; there is no API that provides one.
+        case duplicateRegistration
+        case failed(OSStatus)
+
+        var errorDescription: String? {
+            switch self {
+            case .duplicateRegistration:
+                "This shortcut is already registered. Try a different one."
+            case .failed(let status):
+                "macOS refused to register this shortcut (error \(status))."
+            }
+        }
+    }
 
     private let handles = CarbonHotKeyHandles()
     private let identifier: UInt32
@@ -23,13 +36,11 @@ final class GlobalHotKey {
         self.identifier = identifier
     }
 
-    func register(
-        keyCode: UInt32 = GlobalHotKey.defaultKeyCode,
-        modifiers: UInt32 = GlobalHotKey.defaultModifiers,
-        action: @escaping () -> Void
-    ) {
+    /// Claims `combo` system-wide. Any previous registration is released first,
+    /// so this doubles as the re-registration path when the user picks a new
+    /// shortcut.
+    func register(_ combo: KeyCombo, action: @escaping () -> Void) throws {
         unregister()
-        hotKeyActions[identifier] = action
 
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
@@ -38,16 +49,29 @@ final class GlobalHotKey {
         InstallEventHandler(GetApplicationEventTarget(), hotKeyEventHandler, 1, &eventType, nil, &handles.handler)
 
         let hotKeyID = EventHotKeyID(signature: OSType(0x50534146 /* "PSAF" */), id: identifier)
-        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &handles.hotKey)
+        let status = RegisterEventHotKey(
+            UInt32(combo.keyCode),
+            combo.carbonModifiers,
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &handles.hotKey
+        )
+
+        guard status == noErr else {
+            // Leave nothing half-registered behind: a stale event handler with
+            // no hot key would keep the old shortcut alive invisibly.
+            unregister()
+            throw status == OSStatus(eventHotKeyExistsErr) ? RegistrationError.duplicateRegistration : .failed(status)
+        }
+
+        hotKeyActions[identifier] = action
     }
 
     func unregister() {
         hotKeyActions[identifier] = nil
         handles.release()
     }
-
-    /// A readable rendering of the default shortcut, for the menu and Settings.
-    static var defaultDisplayString: String { "⌃⌥⌘P" }
 }
 
 /// Owns the two opaque Carbon handles.

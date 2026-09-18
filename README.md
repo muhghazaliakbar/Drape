@@ -7,7 +7,8 @@ that arrives mid-demo — screen sharing exposes all of it, and the moment you n
 always the moment after everyone else has.
 
 PresentSafe is a macOS menu bar app that puts a curtain over the leaky parts of your
-screen. Hit `⌃⌥⌘P`, share with confidence, hit it again when you're done.
+screen. Hit `⌃⌥⌘P` (or whatever shortcut you set), share with confidence, hit it again
+when you're done.
 
 > **Status: early.** v0.1 works and is useful, but the scope is deliberately small.
 > See [What it does not do](#what-it-does-not-do) before you rely on it.
@@ -38,6 +39,9 @@ than no tool at all:
   window of its own, so it is captured only when the whole screen is.
 - **It does not suppress notification sounds**, or stop notifications from reaching
   Notification Center.
+- **It cannot tell you when your shortcut is already taken.** Two apps can register the
+  same global shortcut and macOS reports no conflict to either — verified, not assumed.
+  If your shortcut does nothing, another app claimed it first; pick a different one.
 
 ## Install
 
@@ -81,6 +85,11 @@ still needs undoing. Quitting the app while Present Mode is on goes through
 for this app is not "failed to protect" — it is "hid your apps and then forgot to bring
 them back".
 
+**Shortcuts are stored by physical key position, not by character.** A shortcut recorded
+on the key where QWERTY has `P` keeps working after switching to AZERTY — and the label
+in Settings updates to whatever that key actually prints, by asking the active keyboard
+layout through `UCKeyTranslate`.
+
 **No Accessibility permission.** Hiding apps uses `NSRunningApplication.hide()` and the
 shortcut uses Carbon's `RegisterEventHotKey`, both of which work without prompting. The
 modern alternatives (`AXUIElement`, `NSEvent` global monitors) are nicer APIs that would
@@ -89,7 +98,7 @@ reach for *seconds* before you present, that trade is worth it.
 
 ## Roadmap
 
-- [ ] Configurable shortcut
+- [x] Configurable shortcut
 - [ ] Best-effort detection of Zoom / Meet / Teams sharing, as a reminder
 - [ ] Per-display curtains, and user-drawn cover regions
 - [ ] Focus mode integration via Shortcuts

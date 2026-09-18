@@ -15,6 +15,7 @@ struct SettingsView: View {
 struct ProtectionsSettingsView: View {
     @EnvironmentObject private var controller: PresentModeController
     @EnvironmentObject private var preferences: Preferences
+    @ObservedObject private var hotKeyCenter = HotKeyCenter.shared
 
     var body: some View {
         Form {
@@ -41,11 +42,19 @@ struct ProtectionsSettingsView: View {
             }
 
             Section {
-                LabeledContent("Toggle Present Mode", value: GlobalHotKey.defaultDisplayString)
+                LabeledContent("Toggle Present Mode") {
+                    ShortcutRecorder(combo: $preferences.hotKeyCombo)
+                }
+                if let error = hotKeyCenter.registrationError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } header: {
                 Text("Shortcut")
             } footer: {
-                Text("Customising the shortcut is coming in a later release.")
+                Text("If the shortcut does nothing, another app probably claimed it first. macOS does not report that conflict, so the only fix is to try a different combination.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

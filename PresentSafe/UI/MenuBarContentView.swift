@@ -45,7 +45,7 @@ struct MenuBarContentView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(GlobalHotKey.defaultDisplayString)
+            Text(preferences.hotKeyCombo.displayString)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
