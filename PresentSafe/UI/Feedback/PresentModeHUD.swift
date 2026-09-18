@@ -12,6 +12,13 @@ import SwiftUI
 /// the person at the keyboard; the room does not need to watch a green flash.
 /// Exclusion is best-effort — a capturer can build its own content filter — but
 /// the worst case is cosmetic, not a leak.
+///
+/// Two things keep the motion smooth, both learned by getting them wrong first:
+/// the windows sit at full opacity and animate their *contents*, because
+/// animating `NSWindow.alphaValue` drives a full-screen surface through the
+/// window server and visibly steps; and the glow is drawn with gradients rather
+/// than a blurred stroke, which on a 4K display was expensive enough to stutter
+/// on its own.
 @MainActor
 final class PresentModeHUD {
     static let shared = PresentModeHUD()
@@ -54,85 +61,88 @@ final class PresentModeHUD {
         }
     }
 
-    private var glowWindows: [NSWindow] = []
-    private var toastWindow: NSWindow?
-    private var dismissTask: Task<Void, Never>?
+    /// Drives every HUD window's content animation from one place, so the glow
+    /// and the card move together instead of drifting apart.
+    @MainActor
+    final class Phase: ObservableObject {
+        @Published var isVisible = false
+    }
 
-    private static let holdDuration = Duration.milliseconds(1700)
-    private static let fadeIn = 0.16
-    private static let fadeOut = 0.34
+    private var windows: [NSWindow] = []
+    private var phase = Phase()
+    private var lifecycle: Task<Void, Never>?
+
+    private static let hold = Duration.milliseconds(1600)
+    private static let appear = Animation.easeOut(duration: 0.34)
+    private static let disappear = Animation.easeInOut(duration: 0.55)
+    private static let disappearDuration = Duration.milliseconds(560)
 
     func show(_ state: State) {
         guard Preferences.shared.showsOnScreenConfirmation else { return }
 
-        // A second toggle while the first is still fading must not leave the
-        // old card on screen, or race the new one off it.
-        dismissTask?.cancel()
-        teardown()
+        // A second toggle mid-animation must replace the first outright, not
+        // race it. Everything below belongs to this invocation only.
+        lifecycle?.cancel()
+        closeWindows()
 
-        glowWindows = NSScreen.screens.map { makeGlowWindow(on: $0, tint: state.tint) }
-        toastWindow = makeToastWindow(for: state)
+        let phase = Phase()
+        self.phase = phase
 
-        for window in glowWindows + [toastWindow].compactMap(\.self) {
-            window.alphaValue = 0
+        windows = NSScreen.screens.map { makeGlowWindow(on: $0, tint: state.tint, phase: phase) }
+        windows.append(makeToastWindow(for: state, phase: phase))
+
+        for window in windows {
+            // Full opacity from the start: the content is what fades, so there
+            // is nothing here for the window server to animate.
+            window.alphaValue = 1
             window.orderFrontRegardless()
         }
-        animateAlpha(to: 1, duration: Self.fadeIn)
 
-        dismissTask = Task { [weak self] in
-            try? await Task.sleep(for: Self.holdDuration)
+        lifecycle = Task { [weak self] in
+            // Let SwiftUI commit the hidden state once before animating away
+            // from it, otherwise the first frame is already fully drawn and the
+            // fade-in is skipped entirely.
+            await Task.yield()
             guard !Task.isCancelled else { return }
-            self?.dismiss()
+            withAnimation(Self.appear) { phase.isVisible = true }
+
+            try? await Task.sleep(for: Self.hold)
+            guard !Task.isCancelled else { return }
+            withAnimation(Self.disappear) { phase.isVisible = false }
+
+            try? await Task.sleep(for: Self.disappearDuration)
+            guard !Task.isCancelled else { return }
+            self?.closeWindows()
         }
     }
 
-    private func dismiss() {
-        let windows = glowWindows + [toastWindow].compactMap(\.self)
-        animateAlpha(to: 0, duration: Self.fadeOut) {
-            for window in windows { window.orderOut(nil) }
-        }
-        glowWindows = []
-        toastWindow = nil
-    }
-
-    private func teardown() {
-        for window in glowWindows { window.orderOut(nil) }
-        toastWindow?.orderOut(nil)
-        glowWindows = []
-        toastWindow = nil
-    }
-
-    private func animateAlpha(to value: CGFloat, duration: Double, completion: (() -> Void)? = nil) {
-        let windows = glowWindows + [toastWindow].compactMap(\.self)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = duration
-            for window in windows { window.animator().alphaValue = value }
-        } completionHandler: {
-            completion?()
-        }
+    private func closeWindows() {
+        for window in windows { window.orderOut(nil) }
+        windows = []
     }
 
     // MARK: - Windows
 
-    private func makeGlowWindow(on screen: NSScreen, tint: Color) -> NSWindow {
+    private func makeGlowWindow(on screen: NSScreen, tint: Color, phase: Phase) -> NSWindow {
         let window = makeOverlayWindow(frame: screen.frame)
-        window.contentView = NSHostingView(rootView: EdgeGlowView(tint: tint))
+        window.contentView = NSHostingView(rootView: EdgeGlowView(tint: tint).environmentObject(phase))
         return window
     }
 
-    private func makeToastWindow(for state: State) -> NSWindow {
+    private func makeToastWindow(for state: State, phase: Phase) -> NSWindow {
         let screen = NSScreen.main ?? NSScreen.screens[0]
-        let size = NSSize(width: 290, height: 62)
+        // Roomy enough for the card to slide without being clipped.
+        let size = NSSize(width: 300, height: 90)
         let visible = screen.visibleFrame
         let frame = NSRect(
             x: visible.midX - size.width / 2,
-            y: visible.maxY - size.height - 10,
+            y: visible.maxY - size.height,
             width: size.width,
             height: size.height
         )
 
         let window = makeOverlayWindow(frame: frame)
-        window.contentView = NSHostingView(rootView: ToastView(state: state))
+        window.contentView = NSHostingView(rootView: ToastView(state: state).environmentObject(phase))
         return window
     }
 
@@ -153,21 +163,92 @@ final class PresentModeHUD {
 
 /// A soft inward glow around the edge of a display.
 ///
-/// Drawn as a thick stroked border that is then blurred: the blur spreads the
-/// colour inwards and the window clips whatever escapes outwards, which gives a
-/// falloff without hand-building a gradient for each edge.
+/// Four gradients rather than one blurred stroke. A blur across a 4K surface is
+/// recomputed every frame and was enough to make the fade stutter; gradients
+/// cost effectively nothing and give a falloff that is easier to shape.
 private struct EdgeGlowView: View {
+    /// Tuning lives here. The glow has to register at the edge of vision while
+    /// the user is looking at something else entirely — noticeable, never a
+    /// wash over the screen they are about to present.
+    private static let maxDepth: CGFloat = 130
+    private static let depthRatio: CGFloat = 0.11
+    private static let innerOpacity: Double = 0.30
+    private static let midOpacity: Double = 0.08
+
     let tint: Color
+    @EnvironmentObject private var phase: PresentModeHUD.Phase
 
     var body: some View {
-        Rectangle()
-            .strokeBorder(tint.opacity(0.85), lineWidth: 46)
-            .blur(radius: 36)
+        GeometryReader { proxy in
+            let depth = min(Self.maxDepth, min(proxy.size.width, proxy.size.height) * Self.depthRatio)
+
+            ZStack {
+                band(.top, depth: depth)
+                band(.bottom, depth: depth)
+                band(.leading, depth: depth)
+                band(.trailing, depth: depth)
+            }
+            // Easing the whole glow slightly outwards as it leaves reads as the
+            // light receding, rather than a rectangle being switched off.
+            .scaleEffect(phase.isVisible ? 1 : 1.035)
+            .opacity(phase.isVisible ? 1 : 0)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func band(_ edge: Edge, depth: CGFloat) -> some View {
+        let gradient = LinearGradient(
+            stops: [
+                .init(color: tint.opacity(Self.innerOpacity), location: 0),
+                .init(color: tint.opacity(Self.midOpacity), location: 0.38),
+                .init(color: .clear, location: 1),
+            ],
+            startPoint: edge.startPoint,
+            endPoint: edge.endPoint
+        )
+
+        switch edge {
+        case .top, .bottom:
+            VStack(spacing: 0) {
+                if edge == .bottom { Spacer(minLength: 0) }
+                Rectangle().fill(gradient).frame(height: depth)
+                if edge == .top { Spacer(minLength: 0) }
+            }
+        case .leading, .trailing:
+            HStack(spacing: 0) {
+                if edge == .trailing { Spacer(minLength: 0) }
+                Rectangle().fill(gradient).frame(width: depth)
+                if edge == .leading { Spacer(minLength: 0) }
+            }
+        }
+    }
+}
+
+private extension Edge {
+    var startPoint: UnitPoint {
+        switch self {
+        case .top: .top
+        case .bottom: .bottom
+        case .leading: .leading
+        case .trailing: .trailing
+        }
+    }
+
+    var endPoint: UnitPoint {
+        switch self {
+        case .top: .bottom
+        case .bottom: .top
+        case .leading: .trailing
+        case .trailing: .leading
+        }
     }
 }
 
 private struct ToastView: View {
     let state: PresentModeHUD.State
+    @EnvironmentObject private var phase: PresentModeHUD.Phase
 
     var body: some View {
         HStack(spacing: 11) {
@@ -186,11 +267,18 @@ private struct ToastView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 15)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(height: 62)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
         )
+        .shadow(color: .black.opacity(0.22), radius: 12, y: 4)
+        .padding(.horizontal, 5)
+        // Dropping in from under the menu bar, rather than appearing in place.
+        .offset(y: phase.isVisible ? 8 : -34)
+        .opacity(phase.isVisible ? 1 : 0)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .allowsHitTesting(false)
     }
 }
