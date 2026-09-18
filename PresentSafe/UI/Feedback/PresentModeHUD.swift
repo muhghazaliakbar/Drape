@@ -99,11 +99,11 @@ final class PresentModeHUD {
         let phase = Phase()
         self.phase = phase
 
-        // A blocked app gets the card only. Flashing the whole screen every
-        // time someone Cmd-Tabs would be its own kind of noise.
-        if case .blocked = state {} else {
-            windows = NSScreen.screens.map { makeGlowWindow(on: $0, tint: state.tint, phase: phase) }
-        }
+        // Blocked gets the glow too. It was card-only at first, on the theory
+        // that flashing the screen for a Cmd-Tab would be noise — but a block
+        // the user misses is a block that reads as the app being broken, and
+        // during a presentation there is no second chance to notice.
+        windows = NSScreen.screens.map { makeGlowWindow(on: $0, tint: state.tint, phase: phase) }
         windows.append(makeToastWindow(for: state, phase: phase))
 
         for window in windows {
