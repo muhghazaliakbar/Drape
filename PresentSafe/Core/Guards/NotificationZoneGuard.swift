@@ -27,8 +27,9 @@ final class NotificationZoneGuard: PresentGuard {
     let symbolName = "bell.slash"
     let isEnabledByDefault = true
 
-    /// Roughly a stack of two or three banners, which are about 344pt wide.
-    private static let coverSize = NSSize(width: 372, height: 300)
+    /// Banners are about 344pt wide; the cover is a little wider to allow for
+    /// shadows and the odd oversized banner.
+    private static let coverWidth: CGFloat = 372
     private static let edgeInset: CGFloat = 10
     private static let pollInterval = Duration.milliseconds(250)
 
@@ -142,17 +143,24 @@ final class NotificationZoneGuard: PresentGuard {
         isCovering = false
     }
 
-    /// Top-right of a screen, inset from the visible frame so the cover sits
-    /// below the menu bar rather than fighting with it.
+    /// The full right-hand column of a screen, inside the visible frame so the
+    /// cover stays clear of the menu bar and the Dock.
+    ///
+    /// Full height rather than a banner-sized card, because a stack grows
+    /// downwards and there is no way to learn how tall it got: macOS publishes
+    /// only a full-screen host window for Notification Center, never the
+    /// banners' own frames. A fixed height would be a guess that leaks the
+    /// moment three notifications arrive at once. Covering the whole column is
+    /// the only version that cannot be wrong — and it is affordable now that
+    /// the cover appears only while a banner is actually up.
     static func coverFrame(on screen: NSScreen) -> NSRect {
         let visible = screen.visibleFrame
-        let width = min(coverSize.width, visible.width)
-        let height = min(coverSize.height, visible.height)
+        let width = min(coverWidth, visible.width)
         return NSRect(
             x: visible.maxX - width - edgeInset,
-            y: visible.maxY - height - edgeInset,
+            y: visible.minY + edgeInset,
             width: width,
-            height: height
+            height: visible.height - (edgeInset * 2)
         )
     }
 
