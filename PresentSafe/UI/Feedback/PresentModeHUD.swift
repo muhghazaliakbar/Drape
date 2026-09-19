@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 import SwiftUI
 
 /// The on-screen confirmation shown when Present Mode is switched.
@@ -399,6 +400,8 @@ private struct ToastView: View {
 
             if case .blocked(_, let bundleID) = state, let bundleID {
                 Button("Snooze") {
+                    Logger(subsystem: "dev.justghali.PresentSafe", category: "Snooze")
+                        .notice("Snoozed \(bundleID, privacy: .public) from the card")
                     SnoozeRegistry.shared.snooze(bundleID)
                     PresentModeHUD.shared.dismissNow()
                     BlockedAppOverlay.shared.dismiss()
@@ -427,11 +430,20 @@ private struct ToastView: View {
         )
         .shadow(color: .black.opacity(0.22), radius: 12, y: 4)
         .padding(.horizontal, 5)
-        // Dropping in from under the menu bar, rather than appearing in place.
         .onHover { phase.isHovered = $0 }
+        // Dropping in from under the menu bar, rather than appearing in place.
         .offset(y: phase.isVisible ? 8 : -34)
         .opacity(phase.isVisible ? 1 : 0)
         .frame(maxHeight: .infinity, alignment: .top)
-        .allowsHitTesting(false)
+        // A confirmation is scenery and must never intercept a click. A block
+        // carries the only way past it, so it has to. This stayed false when
+        // the button arrived, which left Snooze and the hover-to-hold both
+        // dead on a card that looked perfectly interactive.
+        .allowsHitTesting(isActionable)
+    }
+
+    private var isActionable: Bool {
+        if case .blocked(_, let bundleID) = state { return bundleID != nil }
+        return false
     }
 }
