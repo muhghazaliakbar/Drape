@@ -1,5 +1,7 @@
 # PresentSafe
 
+[![CI](https://github.com/muhghazaliakbar/PresentSafe/actions/workflows/ci.yml/badge.svg)](https://github.com/muhghazaliakbar/PresentSafe/actions/workflows/ci.yml)
+
 **One shortcut, pressed three seconds before you share your screen.**
 
 Your password manager, your DMs, the `.env` file open in your editor, the notification
@@ -20,6 +22,10 @@ when you're done.
 | **Hide sensitive apps** | Apps you pick (1Password, Slack, Mail…) are hidden, then brought back afterwards. Open one while presenting and its window is covered; launch one that was closed and it does not open at all. Snooze for three minutes if you really need it. |
 | **Cover the notification corner** | Watches for banners and covers the corner only while one is up, on every display. |
 | **Clear the desktop** | Desktop icons disappear for the duration. *Off by default — it restarts Finder.* |
+
+Switching Present Mode on or off flashes a glow around every display and a card naming
+the new state, so you know the shortcut landed without hunting for the menu bar icon.
+Those are hidden from screen capture — the confirmation is for you, not the room.
 
 Each protection is independent. Turn on only what you want.
 
@@ -95,7 +101,7 @@ protocol PresentGuard: AnyObject {
 about what any of them actually do. Adding a protection means adding one file and one
 line to the registry in the controller's initialiser.
 
-Two decisions worth calling out:
+Four decisions worth calling out:
 
 **Teardown is treated as the critical path, not activation.** If a guard throws halfway
 through `activate()`, the controller still records it as engaged, because a partial change
