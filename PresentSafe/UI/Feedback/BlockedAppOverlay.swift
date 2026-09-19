@@ -139,7 +139,18 @@ final class BlockedAppOverlay {
             )
             window.isOpaque = true
             window.backgroundColor = .windowBackgroundColor
-            window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
+            // Just below the menu bar, not at the top of the world.
+            //
+            // A cover only has to sit above the windows of the app it is
+            // covering, and those are ordinary windows. Parking it at the
+            // maximum level put it above PresentSafe's own menu bar panel, so
+            // the cover hid the controls for turning it off — a block the user
+            // could see but not answer.
+            //
+            // Below `.mainMenu` also keeps it under the system menu bar, the
+            // status bar and every pop-up menu, which is where it belongs: this
+            // app covers applications, not macOS itself.
+            window.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue - 1)
             window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
             window.setFrame(rect, display: false)
             return window
