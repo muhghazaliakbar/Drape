@@ -12,6 +12,12 @@ import AppKit
 /// Template images, so macOS inverts them for a light or dark menu bar and for
 /// the highlight when the menu is open. A coloured image would be wrong in all
 /// three cases — which is why the app icon cannot simply be reused here.
+///
+/// Main actor because the two cached images are `NSImage`, which is not
+/// `Sendable`. Swift 6.0 rejects that outright in a static property; Swift 6.4
+/// says nothing at all, so this compiled locally and broke CI — the reason the
+/// workflow builds on an older Xcode than anyone here develops on.
+@MainActor
 enum MenuBarIcon {
     private static let side: CGFloat = 18
 
