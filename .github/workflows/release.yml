@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the annotated tag's message becomes the release notes
+
+      - name: Show toolchain
+        run: swift --version && xcodebuild -version
+
+      # A release that has not passed its own tests is not a release.
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project PresentSafe.xcodeproj \
+            -scheme PresentSafe \
+            -destination 'platform=macOS'
+
+      - name: Check the tag against the project version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION=$(xcodebuild -project PresentSafe.xcodeproj -scheme PresentSafe \
+            -configuration Release -showBuildSettings 2>/dev/null \
+            | awk '/ MARKETING_VERSION = /{print $3}' | head -1)
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "tag $GITHUB_REF_NAME does not match MARKETING_VERSION $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Package
+        run: Tools/package-release.sh dist
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DMG=$(ls dist/*.dmg)
+          {
+            git tag -l --format='%(contents)' "$GITHUB_REF_NAME"
+            echo
+            echo '### Install'
+            echo
+            echo "Download the disk image, drag **PresentSafe** into Applications, and open it."
+            echo "It lives in the menu bar — there is no Dock icon."
+            echo
+            echo "The build is ad-hoc signed but **not notarised**, so the first launch is refused."
+            echo "Open **System Settings → Privacy & Security**, scroll to Security, and press"
+            echo "**Open Anyway** next to PresentSafe. macOS asks once."
+            echo
+            echo '### Checksum'
+            echo
+            echo '```'
+            cat dist/*.sha256
+            echo '```'
+            echo
+            echo "Built from this tag by [\`release.yml\`](../../blob/main/.github/workflows/release.yml)."
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            "$DMG" "$DMG.sha256"

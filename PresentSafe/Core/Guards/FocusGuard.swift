@@ -44,7 +44,9 @@ final class FocusGuard: PresentGuard {
         didRun = false
 
         guard let name = preferences.focusShortcutOnRelease, !name.isEmpty else { return }
-        try? await Command.run("/usr/bin/shortcuts", ["run", name])
+        // Teardown never propagates: a Shortcut that fails here must not stop the
+        // remaining guards from restoring what they changed.
+        _ = try? await Command.run("/usr/bin/shortcuts", ["run", name])
     }
 
     var configuration: AnyView? {

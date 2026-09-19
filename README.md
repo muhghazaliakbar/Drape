@@ -64,7 +64,21 @@ than no tool at all:
 
 ## Install
 
-Requires macOS 14 or later.
+Requires macOS 14 or later. Universal — Apple silicon and Intel.
+
+**[Download the latest release](https://github.com/muhghazaliakbar/PresentSafe/releases/latest)**,
+drag PresentSafe into Applications, and open it. It lives in the menu bar; there is no
+Dock icon.
+
+The first launch is refused, and it is worth knowing why rather than being told to click
+through it. The build is ad-hoc signed but **not notarised** — Apple charges $99 a year for
+the certificate that would make the warning go away, and this app does not take your money.
+So macOS reports, accurately, that it cannot verify who built it. Open **System Settings →
+Privacy & Security**, scroll to Security, and press **Open Anyway**. It asks once.
+
+If you would rather not take my word for what is in the binary, build it yourself — it is
+two commands, and the release is built from the same tag by
+[`release.yml`](.github/workflows/release.yml):
 
 ```bash
 git clone https://github.com/muhghazaliakbar/PresentSafe.git
@@ -72,7 +86,11 @@ cd PresentSafe
 open PresentSafe.xcodeproj
 ```
 
-Then build and run (`⌘R`). Signed release builds will arrive once the feature set settles.
+Then build and run (`⌘R`), or produce the same disk image the release ships:
+
+```bash
+Tools/package-release.sh
+```
 
 To run the tests:
 
@@ -135,7 +153,8 @@ reach for *seconds* before you present, that trade is worth it.
 - [ ] Best-effort detection of Zoom / Meet / Teams sharing, as a reminder
 - [ ] Per-display curtains, and user-drawn cover regions
 - [x] An app icon
-- [ ] Signed, notarised release builds + Homebrew cask
+- [x] Downloadable builds
+- [ ] Notarised builds + Homebrew cask
 
 ## Languages
 
