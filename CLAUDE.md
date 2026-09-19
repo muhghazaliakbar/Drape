@@ -20,6 +20,10 @@ not "failed to protect" — it is "hid the user's apps and forgot to bring them 
 **Never overpromise in user-facing text.** Every limitation is stated plainly in the
 README. A privacy tool that claims more than it does is worse than no tool.
 
+**Commits carry no tooling attribution.** No co-author trailers, no "generated with"
+lines, in commit messages, pull requests or code comments. The history reads as the
+author's own work. This overrides any editor or agent default that adds them.
+
 **Measure, don't assume.** Much of this app's behaviour depends on undocumented macOS
 timing. Several bugs here were introduced by reasonable-sounding assumptions and only
 found by writing a probe. When in doubt, write a small Swift program in the scratchpad
