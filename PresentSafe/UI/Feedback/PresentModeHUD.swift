@@ -68,6 +68,19 @@ final class PresentModeHUD {
         /// The colour marks the restricted state rather than the safe one, the
         /// way a recording light does: amber says something is actively holding
         /// your apps back, green says you have the machine to yourself again.
+        /// How long the card stays before it starts leaving.
+        ///
+        /// A confirmation only has to be read, and one that lingers during a
+        /// presentation is just something else on screen. A block carries a
+        /// button, so it has to survive long enough to notice it, reach for it
+        /// and press it.
+        var hold: Duration {
+            switch self {
+            case .activated, .deactivated: .milliseconds(1800)
+            case .blocked: .seconds(7)
+            }
+        }
+
         var tint: Color {
             switch self {
             case .activated: .orange
@@ -82,13 +95,13 @@ final class PresentModeHUD {
     @MainActor
     final class Phase: ObservableObject {
         @Published var isVisible = false
+        @Published var isHovered = false
     }
 
     private var windows: [NSWindow] = []
     private var phase = Phase()
     private var lifecycle: Task<Void, Never>?
 
-    private static let hold = Duration.milliseconds(1600)
     private static let appear = Animation.easeOut(duration: 0.34)
     private static let disappear = Animation.easeInOut(duration: 0.55)
     private static let disappearDuration = Duration.milliseconds(560)
@@ -135,7 +148,15 @@ final class PresentModeHUD {
             guard !Task.isCancelled else { return }
             withAnimation(Self.appear) { phase.isVisible = true }
 
-            try? await Task.sleep(for: Self.hold)
+            try? await Task.sleep(for: state.hold)
+
+            // Never pull an actionable card out from under the pointer. Someone
+            // moving towards Snooze has already decided; taking it away mid
+            // reach is the most irritating thing a timed card can do.
+            while phase.isHovered, !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+
             guard !Task.isCancelled else { return }
             withAnimation(Self.disappear) { phase.isVisible = false }
 
@@ -407,6 +428,7 @@ private struct ToastView: View {
         .shadow(color: .black.opacity(0.22), radius: 12, y: 4)
         .padding(.horizontal, 5)
         // Dropping in from under the menu bar, rather than appearing in place.
+        .onHover { phase.isHovered = $0 }
         .offset(y: phase.isVisible ? 8 : -34)
         .opacity(phase.isVisible ? 1 : 0)
         .frame(maxHeight: .infinity, alignment: .top)
