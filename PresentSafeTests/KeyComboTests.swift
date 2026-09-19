@@ -135,6 +135,7 @@ struct KeyComboTests {
 }
 
 @Suite("KeyCodeNaming")
+@MainActor
 struct KeyCodeNamingTests {
 
     @Test("Named keys use their conventional symbol", arguments: [
@@ -150,7 +151,6 @@ struct KeyCodeNamingTests {
     }
 
     @Test("Printable keys resolve through the active keyboard layout")
-    @MainActor
     func printableKeysResolveToCharacters() {
         // The character depends on the user's layout, so this asserts the shape
         // of the answer rather than a specific letter: a single uppercase

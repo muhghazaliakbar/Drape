@@ -69,6 +69,7 @@ struct KeyCombo: Equatable, Hashable, Codable, Sendable {
 
     /// Rendered the way macOS renders shortcuts: modifiers in the canonical
     /// ⌃⌥⇧⌘ order, then the key.
+    @MainActor
     var displayString: String {
         Self.displayString(for: modifiers) + KeyCodeNaming.label(for: keyCode)
     }
@@ -96,10 +97,18 @@ struct KeyCombo: Equatable, Hashable, Codable, Sendable {
 
     var modifierSymbols: [String] { Self.symbols(for: modifiers) }
 
+    @MainActor
     var keyLabel: String { KeyCodeNaming.label(for: keyCode) }
 }
 
 /// Turns a physical key code into something a human recognises.
+///
+/// Main actor by requirement, not by preference. The Text Input Sources API
+/// underneath `printableCharacter` aborts the whole process when it is called
+/// from two threads at once — macOS states the rule outright and enforces it
+/// with `abort()`. Isolating the type is what turns that runtime execution into
+/// a compile error.
+@MainActor
 enum KeyCodeNaming {
     /// Keys with no printable character, or whose symbol is conventional rather
     /// than whatever the layout would produce.
