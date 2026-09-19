@@ -169,7 +169,7 @@ they mostly instruct macOS to do things. Issues and PRs welcome.
 PresentSafe is free and MIT licensed, and it stays that way. If it has saved you from
 sharing something you would rather not have, you are welcome to say thanks:
 
-<a href="https://www.buymeacoffee.com/justghali.dev" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="48" width="173"></a>
+<a href="https://www.buymeacoffee.com/justghali.dev"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="60" width="217"></a>
 
 Reporting a bug or adding an app to the sensitive list is worth just as much.
 
