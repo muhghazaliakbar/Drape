@@ -12,10 +12,10 @@ struct PresentSafeApp: App {
                 .environmentObject(controller)
                 .environmentObject(preferences)
         } label: {
-            // The icon is the only always-visible signal that Present Mode is
-            // on. It must be unmistakable at a glance, mid-call, on a laptop
-            // display someone else is watching.
-            Image(systemName: controller.isActive ? "eye.slash.circle.fill" : "eye.circle")
+            // The only always-visible signal that Present Mode is on. It has to
+            // be unmistakable at a glance, mid-call, on a laptop display
+            // someone else is watching.
+            Image(nsImage: MenuBarIcon.image(covering: controller.isActive))
         }
         .menuBarExtraStyle(.window)
     }
