@@ -24,6 +24,7 @@ final class HideAppsGuard: PresentGuard {
     /// the user deliberately put away.
     private var hiddenByUs: [NSRunningApplication] = []
     private var launchObserver: (any NSObjectProtocol)?
+    private var willLaunchObserver: (any NSObjectProtocol)?
     private var activationObserver: (any NSObjectProtocol)?
     private var unhideObserver: (any NSObjectProtocol)?
     private var sweepTask: Task<Void, Never>?
@@ -32,6 +33,19 @@ final class HideAppsGuard: PresentGuard {
     /// giving this focus straight back, which is the difference between "the
     /// app never opened" and "something flashed past and stole my keyboard".
     private var lastSafeFrontmost: NSRunningApplication?
+
+    /// Launches already being refused. `willLaunch` and `didLaunch` both fire
+    /// for the same launch, and starting twice would leave two loops fighting
+    /// over one process.
+    private var refusing: Set<pid_t> = []
+
+    /// One frame at 60Hz. Anything slower and the app holds the menu bar long
+    /// enough to see.
+    private static let tightTick = Duration.milliseconds(16)
+    private static let relaxedTick = Duration.milliseconds(100)
+    private static let tightWindow = Duration.milliseconds(800)
+    /// How long an app gets to honour a polite quit before it is killed.
+    private static let politeQuitGrace = Duration.milliseconds(500)
     private let logger = Logger(subsystem: "dev.justghali.PresentSafe", category: "HideApps")
 
     init(preferences: Preferences) {
@@ -62,6 +76,22 @@ final class HideAppsGuard: PresentGuard {
         // A sensitive app launched mid-presentation — Slack reopening, Mail
         // raised by a clicked link — arrives frontmost and unhidden, which is
         // the worst possible moment for it.
+        // Both notifications. `willLaunch` arrives about 180ms earlier —
+        // measured — and that head start is most of the difference between "it
+        // flickered" and "nothing happened". `didLaunch` stays as the backstop
+        // for launches that never announce themselves early.
+        willLaunchObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willLaunchApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            let pid = Self.processIdentifier(from: notification)
+            MainActor.assumeIsolated { [weak self] in
+                guard let pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
+                self?.refuseLaunch(of: app)
+            }
+        }
+
         launchObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
             object: nil,
@@ -158,11 +188,13 @@ final class HideAppsGuard: PresentGuard {
     }
 
     func deactivate() async {
-        for observer in [launchObserver, activationObserver, unhideObserver].compactMap(\.self) {
+        for observer in [launchObserver, willLaunchObserver, activationObserver, unhideObserver].compactMap(\.self) {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
         launchObserver = nil
+        willLaunchObserver = nil
         activationObserver = nil
+        refusing.removeAll()
         unhideObserver = nil
         sweepTask?.cancel()
         sweepTask = nil
@@ -275,48 +307,56 @@ final class HideAppsGuard: PresentGuard {
             return
         }
 
-        // Order matters, and all three parts are doing work.
-        //
-        // Hide first: measured, terminate() alone takes over a second to land,
-        // and the window arrives at about 1.2s — far too close for comfort.
-        //
-        // Then hand focus straight back. This is what removes the jolt: even
-        // with no window ever drawn, the launch takes the menu bar and the
-        // keyboard away, and that alone reads as the app having opened.
-        app.hide()
-        restoreFocus()
-        let reported = app.terminate()
-        logger.notice("Refusing launch of \(bundleID, privacy: .public); terminate() reported \(reported)")
+        guard refusing.insert(app.processIdentifier).inserted else { return }
 
+        logger.notice("Refusing launch of \(bundleID, privacy: .public)")
         PresentModeHUD.shared.show(.blocked(appName: app.localizedName ?? bundleID, bundleID: bundleID))
-        keepDown(app, bundleID: bundleID)
+        suppress(app, bundleID: bundleID)
     }
 
-    /// Keeps asking until the app is hidden or gone.
+    /// Holds a refused launch down until the process is gone.
     ///
-    /// `hide()` reports failure while an app is still launching and then takes
-    /// effect a moment later — measured at around 600ms — so a single call is a
-    /// coin toss. An app that draws its window faster than that would otherwise
-    /// be on screen for the whole time the quit request is in flight.
-    private func keepDown(_ app: NSRunningApplication, bundleID: String) {
+    /// All of this is timing, measured on real launches: `hide()` reports
+    /// failure while the app is still starting and only lands some hundreds of
+    /// milliseconds later; the app grabs focus for itself once it finishes
+    /// launching, which is *after* the first attempt to hand focus back; and
+    /// its window arrives around 1.2s in.
+    ///
+    /// So the loop runs at frame rate for the first stretch instead of politely
+    /// every tenth of a second. At 100ms the app can hold the menu bar for six
+    /// frames — which is precisely the flicker this exists to remove.
+    private func suppress(_ app: NSRunningApplication, bundleID: String) {
         Task { [weak self] in
-            for _ in 0..<12 {
-                try? await Task.sleep(for: .milliseconds(100))
-                guard let self, !app.isTerminated else { return }
+            let start = ContinuousClock.now
+            var askedToQuit = false
+
+            while !app.isTerminated {
+                guard let self else { return }
                 // Snoozing mid-flight means the user asked for it after all.
-                guard self.isSensitive(app) else { return }
+                guard self.isSensitive(app) else { break }
 
                 if !app.isHidden { app.hide() }
                 if NSWorkspace.shared.frontmostApplication == app { self.restoreFocus() }
+
+                // A quit request before the app is ready is simply refused, so
+                // it waits until there is something there to ask.
+                if !askedToQuit, app.isFinishedLaunching {
+                    askedToQuit = app.terminate()
+                }
+
+                let elapsed = start.duration(to: .now)
+                if elapsed > Self.politeQuitGrace {
+                    // Asked nicely for long enough. Measured, this lands in
+                    // under 100ms where the polite request takes over a second.
+                    let forced = app.forceTerminate()
+                    self.logger.notice("Forced \(bundleID, privacy: .public); reported \(forced)")
+                    break
+                }
+
+                try? await Task.sleep(for: elapsed < Self.tightWindow ? Self.tightTick : Self.relaxedTick)
             }
 
-            // Still alive well after a polite request. Measured, forceTerminate
-            // lands in under 100ms — but it is a last resort rather than the
-            // opening move, because it gives the app no chance to finish
-            // whatever it was writing when it started up.
-            guard let self, !app.isTerminated, self.isSensitive(app) else { return }
-            let forced = app.forceTerminate()
-            self.logger.notice("Forced \(bundleID, privacy: .public) after it ignored the quit; reported \(forced)")
+            self?.refusing.remove(app.processIdentifier)
         }
     }
 
