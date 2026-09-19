@@ -73,7 +73,14 @@ jobs:
             echo
             echo "Built from this tag by [\`release.yml\`](../../blob/main/.github/workflows/release.yml)."
           } > notes.md
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --notes-file notes.md \
-            "$DMG" "$DMG.sha256"
+          # Re-pointing a tag re-runs this job, so publishing has to be repeatable:
+          # update the release that is already there rather than failing on it.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+            gh release upload "$GITHUB_REF_NAME" "$DMG" "$DMG.sha256" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file notes.md \
+              "$DMG" "$DMG.sha256"
+          fi
