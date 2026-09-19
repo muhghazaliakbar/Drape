@@ -101,12 +101,30 @@ final class BlockedAppOverlay {
         let primary = rects.max { $0.width * $0.height < $1.width * $1.height }
 
         covers = rects.map { rect in
-            let window = OverlayWindow(
+            // `.titled` rather than `.borderless`, with the title bar hidden.
+            //
+            // A borderless window has square corners, so the cover poked out
+            // past the rounded corners of the window beneath it. A titled
+            // window is given the system's own corner radius, which means the
+            // shape matches whatever macOS is drawing this year instead of a
+            // number hardcoded here that goes stale at the next release.
+            let window = NSWindow(
                 contentRect: rect,
-                styleMask: .borderless,
+                styleMask: [.titled, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
             )
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.styleMask.remove(.resizable)
+            window.isMovable = false
+            window.isMovableByWindowBackground = false
+            for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                window.standardWindowButton(button)?.isHidden = true
+            }
+            // The window it covers already casts a shadow; a second one would
+            // darken the edge twice over.
+            window.hasShadow = false
             window.contentView = NSHostingView(
                 rootView: BlockedWindowCover(
                     appName: name,
@@ -129,12 +147,6 @@ final class BlockedAppOverlay {
 
         for cover in covers { cover.orderFrontRegardless() }
     }
-}
-
-/// A borderless window will not become key unless it says it can, and without
-/// key status the buttons inside it cannot be clicked.
-private final class OverlayWindow: NSWindow {
-    override var canBecomeKey: Bool { true }
 }
 
 private struct BlockedWindowCover: View {
