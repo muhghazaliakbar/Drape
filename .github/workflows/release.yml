@@ -11,9 +11,7 @@ jobs:
   release:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # the annotated tag's message becomes the release notes
+      - uses: actions/checkout@v5
 
       - name: Show toolchain
         run: swift --version && xcodebuild -version
@@ -45,8 +43,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           DMG=$(ls dist/*.dmg)
+          # The release notes are the annotated tag's own message. It has to come
+          # from the API: actions/checkout leaves behind a lightweight tag pointing
+          # at the commit, so `git tag -l --format=%(contents)` returns the commit
+          # message instead — which is how the first v0.1.0 notes went out wrong.
+          REF=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME")
+          if [ "$(jq -r .object.type <<<"$REF")" != "tag" ]; then
+            echo "$GITHUB_REF_NAME is a lightweight tag; releases need an annotated one" >&2
+            echo "  git tag -a $GITHUB_REF_NAME --cleanup=verbatim" >&2
+            exit 1
+          fi
           {
-            git tag -l --format='%(contents)' "$GITHUB_REF_NAME"
+            gh api "repos/$GITHUB_REPOSITORY/git/tags/$(jq -r .object.sha <<<"$REF")" --jq .message
             echo
             echo '### Install'
             echo
