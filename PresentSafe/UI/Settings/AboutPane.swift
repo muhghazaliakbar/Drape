@@ -35,27 +35,14 @@ struct AboutPane: View {
         .padding(.vertical, 24)
     }
 
-    /// A drawn mark rather than `NSApp.applicationIconImage`.
-    ///
-    /// The app ships no icon asset yet, so the real icon is the blank generic
-    /// one macOS hands out — which would read as an unfinished app rather than
-    /// a deliberate one. Swap this for the bundle icon once there is one.
+    /// The bundle's own icon, so this screen cannot drift away from what the
+    /// Dock and the Finder show. It used to draw a stand-in, because the app
+    /// shipped without an icon and the generic placeholder macOS hands out read
+    /// as an unfinished app.
     private var appMark: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [Color.accentColor, Color.accentColor.opacity(0.65)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .frame(width: 76, height: 76)
-            .overlay {
-                Image(systemName: "eye.slash.circle.fill")
-                    .font(.system(size: 40, weight: .medium))
-                    .foregroundStyle(.white)
-            }
-            .shadow(color: .black.opacity(0.18), radius: 5, y: 3)
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .frame(width: 96, height: 96)
             .accessibilityHidden(true)
     }
 

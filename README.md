@@ -134,7 +134,7 @@ reach for *seconds* before you present, that trade is worth it.
 - [ ] Focus integration via Shortcuts (written, not yet enabled)
 - [ ] Best-effort detection of Zoom / Meet / Teams sharing, as a reminder
 - [ ] Per-display curtains, and user-drawn cover regions
-- [ ] An app icon (About currently draws a stand-in mark)
+- [x] An app icon
 - [ ] Signed, notarised release builds + Homebrew cask
 
 ## Languages
