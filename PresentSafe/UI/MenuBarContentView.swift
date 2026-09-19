@@ -26,8 +26,13 @@ struct MenuBarContentView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: controller.isActive ? "eye.slash.circle.fill" : "eye.circle")
-                .font(.system(size: 20))
+            // The app's own mark, the same one in the menu bar and the Dock.
+            // A status glyph here would say what is happening; this says who is
+            // saying it, which is the header's job.
+            Image(nsImage: MenuBarIcon.image(covering: controller.isActive))
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 22, height: 22)
                 // Accent, not red. An active Present Mode means the screen is
                 // covered — that is the state the user wanted, and colouring it
                 // like a warning tells them the opposite.
