@@ -47,8 +47,11 @@ final class PresentModeHUD {
                     : String(localized: "\(count) protections active")
             case .deactivated:
                 String(localized: "Everything restored")
-            case .blocked(let appName, _):
-                String(localized: "PresentSafe is blocking \(appName)")
+            case .blocked:
+                // The title already says the app is blocked. Repeating that
+                // here wastes the one line that can tell the user what to do
+                // about it.
+                String(localized: "Snooze to use it for 3 minutes")
             }
         }
 
@@ -60,13 +63,15 @@ final class PresentModeHUD {
             }
         }
 
-        /// Green for protected. Amber for the moment protection ends — if the
-        /// shortcut is hit by accident mid-presentation, that is precisely when
-        /// the user needs to notice.
+        /// Amber while protection is on, green when it ends.
+        ///
+        /// The colour marks the restricted state rather than the safe one, the
+        /// way a recording light does: amber says something is actively holding
+        /// your apps back, green says you have the machine to yourself again.
         var tint: Color {
             switch self {
-            case .activated: .green
-            case .deactivated: .orange
+            case .activated: .orange
+            case .deactivated: .green
             case .blocked: .blue
             }
         }
@@ -163,7 +168,10 @@ final class PresentModeHUD {
     private func makeToastWindow(for state: State, phase: Phase) -> NSWindow {
         let screen = NSScreen.main ?? NSScreen.screens[0]
         // Roomy enough for the card to slide without being clipped.
-        let size = NSSize(width: 300, height: 90)
+        // A blocked card carries a button as well as two lines of text, and at
+        // the narrower width the text was squeezed down to nothing.
+        let isBlocked: Bool = if case .blocked = state { true } else { false }
+        let size = NSSize(width: isBlocked ? 400 : 300, height: 90)
         let visible = screen.visibleFrame
         let frame = NSRect(
             x: visible.midX - size.width / 2,
@@ -356,12 +364,17 @@ private struct ToastView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(state.title)
                     .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
                 Text(state.subtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+            // Without this the button takes what it wants first and the text
+            // truncates to a few characters.
+            .layoutPriority(1)
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 4)
 
             if case .blocked(_, let bundleID) = state, let bundleID {
                 Button("Snooze") {

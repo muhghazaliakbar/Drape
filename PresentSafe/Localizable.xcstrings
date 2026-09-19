@@ -390,16 +390,6 @@
     "PresentSafe": {
       "shouldTranslate": false
     },
-    "PresentSafe is blocking %@": {
-      "localizations": {
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PresentSafe sedang memblokir %@"
-          }
-        }
-      }
-    },
     "PresentSafe is hiding it while you present.": {
       "localizations": {
         "id": {
@@ -526,6 +516,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tunda 3 menit"
+          }
+        }
+      }
+    },
+    "Snooze to use it for 3 minutes": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tunda untuk memakainya 3 menit"
           }
         }
       }
