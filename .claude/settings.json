@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(defaults read *)",
+      "Bash(log show *)",
+      "Bash(log stream *)",
+      "Bash(xcodebuild -version)",
+      "Bash(xcodebuild -list *)",
+      "Bash(xcodebuild -showBuildSettings *)"
+    ]
+  }
+}
