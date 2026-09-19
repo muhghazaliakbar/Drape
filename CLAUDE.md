@@ -1,4 +1,4 @@
-# PresentSafe
+# Drape
 
 A macOS menu bar app that hides sensitive apps and covers notifications while you
 share your screen. SwiftUI + AppKit, no external dependencies, no Accessibility
@@ -91,7 +91,7 @@ Do not re-derive these. Each cost real debugging time.
   results without a `clean`.
 - **A string only reaches the catalogue when its literal sits at the call site.**
   Assigning to a `String` first makes it invisible to the extractor — a silent failure.
-- **`CodeSign failed` on `xcodebuild test`** usually means a stale `PresentSafeTests.xctest`
+- **`CodeSign failed` on `xcodebuild test`** usually means a stale `DrapeTests.xctest`
   left inside the built app's `PlugIns`. Delete the built `.app` and re-run.
 - **The `.xcodeproj` is hand-written** and uses file-system synchronized groups, so new
   Swift files need no project edits. Do not regenerate it.
@@ -100,8 +100,8 @@ Do not re-derive these. Each cost real debugging time.
 ## Workflow
 
 ```bash
-xcodebuild build -project PresentSafe.xcodeproj -scheme PresentSafe -configuration Debug
-xcodebuild test  -project PresentSafe.xcodeproj -scheme PresentSafe -destination 'platform=macOS'
+xcodebuild build -project Drape.xcodeproj -scheme Drape -configuration Debug
+xcodebuild test  -project Drape.xcodeproj -scheme Drape -destination 'platform=macOS'
 ```
 
 Build and tests must be clean before committing — no warnings. CI runs the same tests

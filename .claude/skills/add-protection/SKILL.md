@@ -1,6 +1,6 @@
 ---
 name: add-protection
-description: Add a new protection (a PresentGuard) to PresentSafe. Use when asked to make Present Mode do something additional while it is on — hide something, cover something, change a system setting — or when reviewing a guard someone else wrote.
+description: Add a new protection (a PresentGuard) to Drape. Use when asked to make Present Mode do something additional while it is on — hide something, cover something, change a system setting — or when reviewing a guard someone else wrote.
 ---
 
 # Adding a protection
@@ -11,7 +11,7 @@ reconsider rather than spreading the feature across the app.
 
 ## Steps
 
-1. **Write the guard** in `PresentSafe/Core/Guards/<Name>Guard.swift`.
+1. **Write the guard** in `Drape/Core/Guards/<Name>Guard.swift`.
 
    ```swift
    @MainActor
@@ -38,7 +38,7 @@ reconsider rather than spreading the feature across the app.
 4. **If it needs settings of its own**, return them from `configuration`. They appear
    under the guard's row, only while it is enabled. `HideAppsGuard` is the example.
 
-5. **Add the strings** to `PresentSafe/Localizable.xcstrings`. Verify with a *clean*
+5. **Add the strings** to `Drape/Localizable.xcstrings`. Verify with a *clean*
    export — the exporter serves stale results otherwise, and returns the union of
    extracted strings and the existing catalogue, so it cannot tell you what is missing
    unless you diff against it yourself.

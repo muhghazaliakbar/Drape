@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Builds PresentSafe for release and packages it as a DMG.
+# Builds Drape for release and packages it as a DMG.
 #
 #   Tools/package-release.sh [output-directory]
 #
@@ -17,23 +17,23 @@ BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
 VERSION="$(
-  xcodebuild -project PresentSafe.xcodeproj -scheme PresentSafe \
+  xcodebuild -project Drape.xcodeproj -scheme Drape \
     -configuration Release -showBuildSettings 2>/dev/null \
     | awk '/ MARKETING_VERSION = /{print $3}' | head -1
 )"
 : "${VERSION:?could not read MARKETING_VERSION from the project}"
 
-echo "==> Building PresentSafe $VERSION (universal)"
+echo "==> Building Drape $VERSION (universal)"
 xcodebuild build \
-  -project PresentSafe.xcodeproj \
-  -scheme PresentSafe \
+  -project Drape.xcodeproj \
+  -scheme Drape \
   -configuration Release \
   -derivedDataPath "$BUILD_DIR" \
   ARCHS="arm64 x86_64" \
   ONLY_ACTIVE_ARCH=NO \
   | grep -E '^\*\*|error:|warning:' || true
 
-APP="$BUILD_DIR/Build/Products/Release/PresentSafe.app"
+APP="$BUILD_DIR/Build/Products/Release/Drape.app"
 [ -d "$APP" ] || { echo "build produced no app bundle at $APP" >&2; exit 1; }
 
 echo "==> Verifying the bundle"
@@ -41,7 +41,7 @@ echo "==> Verifying the bundle"
 # release build must not ship them.
 rm -rf "$APP/Contents/PlugIns"
 codesign --verify --deep --strict "$APP"
-lipo -archs "$APP/Contents/MacOS/PresentSafe"
+lipo -archs "$APP/Contents/MacOS/Drape"
 
 echo "==> Staging the disk image"
 STAGE="$BUILD_DIR/stage"
@@ -50,10 +50,10 @@ cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 
 mkdir -p "$OUT_DIR"
-DMG="$OUT_DIR/PresentSafe-$VERSION.dmg"
+DMG="$OUT_DIR/Drape-$VERSION.dmg"
 rm -f "$DMG"
 hdiutil create \
-  -volname "PresentSafe $VERSION" \
+  -volname "Drape $VERSION" \
   -srcfolder "$STAGE" \
   -format UDZO \
   -quiet \

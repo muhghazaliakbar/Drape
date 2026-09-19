@@ -1,6 +1,6 @@
-# PresentSafe
+# Drape
 
-[![CI](https://github.com/muhghazaliakbar/PresentSafe/actions/workflows/ci.yml/badge.svg)](https://github.com/muhghazaliakbar/PresentSafe/actions/workflows/ci.yml)
+[![CI](https://github.com/muhghazaliakbar/Drape/actions/workflows/ci.yml/badge.svg)](https://github.com/muhghazaliakbar/Drape/actions/workflows/ci.yml)
 
 **One shortcut, pressed three seconds before you share your screen.**
 
@@ -8,12 +8,15 @@ Your password manager, your DMs, the `.env` file open in your editor, the notifi
 that arrives mid-demo — screen sharing exposes all of it, and the moment you notice is
 always the moment after everyone else has.
 
-PresentSafe is a macOS menu bar app that puts a curtain over the leaky parts of your
+Drape is a macOS menu bar app that draws a curtain over the leaky parts of your
 screen. Hit `⌃⌥⌘P` (or whatever shortcut you set), share with confidence, hit it again
 when you're done.
 
-> **Status: early.** v0.1 works and is useful, but the scope is deliberately small.
+> **Status: early.** v0.2 works and is useful, but the scope is deliberately small.
 > See [What it does not do](#what-it-does-not-do) before you rely on it.
+>
+> **Renamed.** This was PresentSafe through v0.1. Same app, a name that is its own —
+> old links redirect, and your settings are carried across on first launch.
 
 ## What it does
 
@@ -29,11 +32,11 @@ Those are hidden from screen capture — the confirmation is for you, not the ro
 
 Each protection is independent. Turn on only what you want.
 
-On first launch PresentSafe ticks the sensitive apps you already have, drawn from a
+On first launch Drape ticks the sensitive apps you already have, drawn from a
 built-in list of password managers, messaging clients and mail apps — so it protects
 something before you configure anything. Only apps actually installed on your Mac are
 ever selected, and everything is yours to change in Settings. Missing an app? That list
-is [one file](PresentSafe/Settings/Preferences.swift) and a good first contribution.
+is [one file](Drape/Settings/Preferences.swift) and a good first contribution.
 
 ## What it does not do
 
@@ -52,7 +55,7 @@ than no tool at all:
   shipped yet — it is useless until you have built two Shortcuts by hand, and a protection
   that sets homework before it does anything is a poor first impression.
 - **Covering the notification corner is best-effort.** macOS publishes a full-screen host
-  window for Notification Center, never the banner's own frame, so PresentSafe can tell
+  window for Notification Center, never the banner's own frame, so Drape can tell
   *that* a banner is up but not exactly where. The covered region is a well-placed estimate.
 - **Sharing a single window instead of a whole screen bypasses the cover.** The cover is a
   window of its own, so it is captured only when the whole screen is.
@@ -66,8 +69,8 @@ than no tool at all:
 
 Requires macOS 14 or later. Universal — Apple silicon and Intel.
 
-**[Download the latest release](https://github.com/muhghazaliakbar/PresentSafe/releases/latest)**,
-drag PresentSafe into Applications, and open it. It lives in the menu bar; there is no
+**[Download the latest release](https://github.com/muhghazaliakbar/Drape/releases/latest)**,
+drag Drape into Applications, and open it. It lives in the menu bar; there is no
 Dock icon.
 
 The first launch is refused, and it is worth knowing why rather than being told to click
@@ -81,9 +84,9 @@ two commands, and the release is built from the same tag by
 [`release.yml`](.github/workflows/release.yml):
 
 ```bash
-git clone https://github.com/muhghazaliakbar/PresentSafe.git
-cd PresentSafe
-open PresentSafe.xcodeproj
+git clone https://github.com/muhghazaliakbar/Drape.git
+cd Drape
+open Drape.xcodeproj
 ```
 
 Then build and run (`⌘R`), or produce the same disk image the release ships:
@@ -95,7 +98,7 @@ Tools/package-release.sh
 To run the tests:
 
 ```bash
-xcodebuild test -project PresentSafe.xcodeproj -scheme PresentSafe -destination 'platform=macOS'
+xcodebuild test -project Drape.xcodeproj -scheme Drape -destination 'platform=macOS'
 ```
 
 No Accessibility permission is required. That is a design constraint, not an
@@ -158,14 +161,14 @@ reach for *seconds* before you present, that trade is worth it.
 
 ## Languages
 
-PresentSafe follows the language macOS is set to, and falls back to English. It ships in
+Drape follows the language macOS is set to, and falls back to English. It ships in
 English and Indonesian today.
 
 You can also set it per app, without changing your whole system: System Settings →
 General → Language & Region → Applications.
 
 Adding a language is a translation job, not a coding one. Open
-`PresentSafe/Localizable.xcstrings` in Xcode, pick your language from the `+` button, and
+`Drape/Localizable.xcstrings` in Xcode, pick your language from the `+` button, and
 fill in the column. Nothing in the code needs to change.
 
 One rule if you *do* touch the code: a string only reaches the catalog when its literal
@@ -180,12 +183,12 @@ New protections are the most useful contribution: conform to `PresentGuard`, add
 the registry, done. If your guard changes anything that outlives the process, implement
 `recoverAfterUncleanShutdown()` too.
 
-Pure logic is unit-tested (see `PresentSafeTests`); the guards themselves are not, since
+Pure logic is unit-tested (see `DrapeTests`); the guards themselves are not, since
 they mostly instruct macOS to do things. Issues and PRs welcome.
 
 ## Support
 
-PresentSafe is free and MIT licensed, and it stays that way. If it has saved you from
+Drape is free and MIT licensed, and it stays that way. If it has saved you from
 sharing something you would rather not have, you are welcome to say thanks:
 
 <a href="https://www.buymeacoffee.com/justghali.dev"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="60" width="217"></a>

@@ -20,14 +20,14 @@ jobs:
       - name: Test
         run: |
           xcodebuild test \
-            -project PresentSafe.xcodeproj \
-            -scheme PresentSafe \
+            -project Drape.xcodeproj \
+            -scheme Drape \
             -destination 'platform=macOS'
 
       - name: Check the tag against the project version
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          VERSION=$(xcodebuild -project PresentSafe.xcodeproj -scheme PresentSafe \
+          VERSION=$(xcodebuild -project Drape.xcodeproj -scheme Drape \
             -configuration Release -showBuildSettings 2>/dev/null \
             | awk '/ MARKETING_VERSION = /{print $3}' | head -1)
           if [ "$TAG" != "$VERSION" ]; then
@@ -58,12 +58,12 @@ jobs:
             echo
             echo '### Install'
             echo
-            echo "Download the disk image, drag **PresentSafe** into Applications, and open it."
+            echo "Download the disk image, drag **Drape** into Applications, and open it."
             echo "It lives in the menu bar — there is no Dock icon."
             echo
             echo "The build is ad-hoc signed but **not notarised**, so the first launch is refused."
             echo "Open **System Settings → Privacy & Security**, scroll to Security, and press"
-            echo "**Open Anyway** next to PresentSafe. macOS asks once."
+            echo "**Open Anyway** next to Drape. macOS asks once."
             echo
             echo '### Checksum'
             echo
